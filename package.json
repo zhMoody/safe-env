@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "",
   "author": "Moody",
+  "license": "MIT",
+  "homepage": "https://github.com/zhMoody/safe-env#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zhMoody/safe-env.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zhMoody/safe-env/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

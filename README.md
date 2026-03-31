@@ -1,8 +1,19 @@
-# safe-env 🔒
+# @zh-moody/safe-env 🛡️
+
+[![npm version](https://img.shields.io/npm/v/@zh-moody/safe-env.svg?style=flat-square)](https://www.npmjs.com/package/@zh-moody/safe-env)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/zhMoody/safe-env?style=flat-square)](https://github.com/zhMoody/safe-env)
 
 **告别 `undefined`！在应用启动的第一行，拦截所有错误配置。**
 
 无论你在写 Vue、React 还是 Node.js，环境变量配置永远是 Bug 的温床。`safe-env` 通过强类型 Schema 校验，确保你的应用在拥有正确配置的前提下才启动。
+
+---
+
+### 🔗 链接 (Links)
+
+- **GitHub Repository**: [https://github.com/zhMoody/safe-env](https://github.com/zhMoody/safe-env)
+- **NPM Package**: [https://www.npmjs.com/package/@zh-moody/safe-env](https://www.npmjs.com/package/@zh-moody/safe-env)
 
 ---
 
@@ -29,7 +40,7 @@ VITE_PORT=3000
 
 **2. 定义配置 (`src/env.ts`)：**
 ```typescript
-import { safeEnv, s } from 'safe-env';
+import { safeEnv, s } from '@zh-moody/safe-env';
 
 export const config = safeEnv({
   apiUrl: s.string().from('VITE_API_URL'), // 别名映射
@@ -52,7 +63,7 @@ DB_PORT=5432
 
 **2. 定义配置 (`src/db.ts`)：**
 ```typescript
-import { safeEnv, s } from 'safe-env';
+import { safeEnv, s } from '@zh-moody/safe-env';
 
 const dbConfig = safeEnv({
   DB_HOST: s.string('localhost'),
@@ -125,3 +136,9 @@ export default dbConfig;
 ### 📦 跨平台支持
 - **前端**: Vite (Vue/React/Vanilla)。
 - **后端**: Node.js (ESM/CJS)。
+
+---
+
+### 📄 开源协议 (License)
+
+[MIT License](./LICENSE) - Copyright (c) 2025 Moody.
