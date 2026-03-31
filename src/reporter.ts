@@ -1,28 +1,14 @@
 import { EnvError } from './types.js';
 
 export function reportErrors(errors: EnvError[]) {
-  const RED = '\x1b[31m';
-  const GREEN = '\x1b[32m';
-  const YELLOW = '\x1b[33m';
-  const BOLD = '\x1b[1m';
-  const RESET = '\x1b[0m';
-  const DIM = '\x1b[2m';
-
-  console.error(`\n${RED}${BOLD}❌ SafeEnv Configuration Error${RESET}`);
-  console.error(`${DIM}--------------------------------------------------${RESET}`);
+  const c = { r: '\x1b[31m', g: '\x1b[32m', y: '\x1b[33m', b: '\x1b[1m', res: '\x1b[0m', d: '\x1b[2m' };
   
-  // 打印表头
-  console.error(`${BOLD}${'FIELD'.padEnd(15)} ${'ERROR'.padEnd(20)} ${'VALUE'}${RESET}`);
+  console.error(`\n${c.r}${c.b}❌ SafeEnv Error${c.res}\n${c.d}${''.padEnd(40, '-')}${c.res}`);
   
-  for (const err of errors) {
-    const displayValue = err.value === undefined ? `${DIM}undefined${RESET}` : `"${err.value}"`;
-    console.error(
-      `${YELLOW}${err.key.padEnd(15)}${RESET} ` +
-      `${RED}${err.error.padEnd(20)}${RESET} ` +
-      `${DIM}${displayValue}${RESET}`
-    );
-  }
+  errors.forEach(err => {
+    const val = err.value === undefined ? 'undefined' : `"${err.value}"`;
+    console.error(`${c.y}${err.key}${c.res} ${c.r}${err.error}${c.res} ${c.d}${val}${c.res}`);
+  });
 
-  console.error(`${DIM}--------------------------------------------------${RESET}`);
-  console.error(`${GREEN}💡 Tip: Check your .env files or system environment variables.${RESET}\n`);
+  console.error(`${c.d}${''.padEnd(40, '-')}${c.res}\n${c.g}💡 Check your .env files.${c.res}\n`);
 }

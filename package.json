@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "tsup src/index.ts --watch",
-    "build": "tsup src/index.ts --format cjs,esm --dts --minify",
+    "build": "tsup src/index.ts --format cjs,esm --dts --minify --clean",
     "test": "vitest run"
   },
   "exports": {
@@ -24,6 +24,9 @@
     }
   },
   "keywords": [],
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
