@@ -9,29 +9,26 @@ import { InferSchema, Schema, EnvError } from "./types.js";
 import { reportErrors } from "./reporter.js";
 
 interface SafeEnvOptions {
-  mode?: string; // 显式指定模式，如 'development'
+  mode?: string;
   loadProcessEnv?: boolean;
-  source?: Record<string, any>; // 新增：支持手动传入数据源（如 Vite 的 import.meta.env）
+  source?: Record<string, any>;
+  prefix?: string;
 }
 
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions = {},
 ): InferSchema<T> {
-  const { loadProcessEnv = true, source: manualSource } = options;
+  const { loadProcessEnv = true, source: manualSource, prefix = "" } = options;
 
   let source: Record<string, any>;
 
   if (manualSource) {
-    // 1. 如果手动提供了 source，直接使用它
     source = manualSource;
   } else {
-    // 2. 否则，执行 Node 环境的自动加载逻辑
     const mode =
       options.mode ||
-      (typeof process !== "undefined"
-        ? process.env.NODE_ENV
-        : "development");
+      (typeof process !== "undefined" ? process.env.NODE_ENV : "development");
     const filesToLoad = [
       ".env",
       ".env.local",
@@ -46,9 +43,7 @@ export function safeEnv<T extends Schema>(
 
     source = {
       ...combinedData,
-      ...(loadProcessEnv && typeof process !== "undefined"
-        ? process.env
-        : {}),
+      ...(loadProcessEnv && typeof process !== "undefined" ? process.env : {}),
     };
   }
 
@@ -57,39 +52,58 @@ export function safeEnv<T extends Schema>(
 
   for (const key in schema) {
     const definition = schema[key];
-    const rawValue = source[key];
+
+    // 自动寻找 Key：优先用 definition.sourceKey，
+    // 其次尝试 prefix + key (如 VITE_PORT)，
+    // 最后用原 key (如 PORT)
+    const lookupKey =
+      definition.sourceKey ||
+      (source[prefix + key] !== undefined ? prefix + key : key);
+
+    const rawValue = source[lookupKey];
 
     try {
-      if (rawValue === undefined) {
-        if (definition.required) {
+      let parsedValue: any;
+
+      if (
+        rawValue === undefined ||
+        (rawValue === "" && definition.default !== undefined)
+      ) {
+        if (definition.required && rawValue === undefined) {
           throw new Error("Required field missing");
         }
-
-        result[key] = definition.default;
+        parsedValue = definition.default;
       } else {
-        result[key] = definition.parse(rawValue);
+        parsedValue = definition.parse(rawValue);
       }
+
+      if (parsedValue !== undefined && definition.metadata) {
+        const { min, max, validate } = definition.metadata;
+        if (typeof parsedValue === "number") {
+          if (min !== undefined && parsedValue < min)
+            throw new Error(`Below min ${min}`);
+          if (max !== undefined && parsedValue > max)
+            throw new Error(`Above max ${max}`);
+        }
+        if (validate && !validate.fn(parsedValue))
+          throw new Error(validate.message);
+      }
+
+      result[key] = parsedValue;
     } catch (err: any) {
-      errors.push({
-        key,
-        error: err.message,
-        value: rawValue,
-      });
+      errors.push({ key: lookupKey, error: err.message, value: rawValue });
     }
   }
 
   if (errors.length > 0) {
     reportErrors(errors);
-    // 只有在 Node 环境下才直接退出
-    if (typeof process !== "undefined" && process.exit) {
+    const isRealNode = typeof process !== "undefined" && !!process.exit;
+    if (isRealNode && !manualSource) {
       process.exit(1);
     } else {
-      throw new Error(
-        "SafeEnv: Configuration validation failed. Check console for details.",
-      );
+      throw new Error("SafeEnv: Configuration validation failed.");
     }
   }
 
   return result;
 }
-

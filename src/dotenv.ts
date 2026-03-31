@@ -29,21 +29,20 @@ export function parseDotEnv(content: string): Record<string, string> {
 
 /**
  * 只有在 Node 环境下才调用的加载器
+ * 这里使用同步的文件读取，但为了兼容浏览器打包，采用动态判断
  */
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 export function loadDotEnv(filePath = ".env"): Record<string, string> {
-  // 检查是否在 Node 环境 (简单的跨平台检查)
+  // 检查是否在 Node 环境
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
-  
   if (!isNode) return {};
 
   try {
-    // 动态加载 Node 原生模块，防止浏览器打包工具静态分析报错
-    const fs = require("node:fs");
-    const path = require("node:path");
-    
-    const fullPath = path.resolve(process.cwd(), filePath);
-    if (fs.existsSync(fullPath)) {
-      const content = fs.readFileSync(fullPath, "utf-8");
+    const fullPath = resolve(process.cwd(), filePath);
+    if (existsSync(fullPath)) {
+      const content = readFileSync(fullPath, "utf-8");
       return parseDotEnv(content);
     }
   } catch (err) {
