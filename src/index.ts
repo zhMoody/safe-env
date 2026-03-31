@@ -4,9 +4,6 @@
  * @LastEditTime: 2026-03-31 14:58:37
  * @FilePath: \safe-env\src\index.ts
  */
-export const version = "0.1.0";
-console.log("SafeEnv initialized!!");
-
 export * from "./types.js";
 export * from "./schema.js";
 export * from "./core.js";
