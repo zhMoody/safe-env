@@ -1,5 +1,5 @@
 {
-  "name": "safe-env",
+  "name": "@zh-moody/safe-env",
   "version": "0.1.0",
   "description": "",
   "author": "Moody",
@@ -12,8 +12,8 @@
     "./dist/fs-node.cjs": "./dist/fs-browser.js"
   },
   "scripts": {
-    "dev": "tsup src/index.ts --watch",
-    "build": "tsup src/index.ts --format cjs,esm --dts --minify --clean",
+    "dev": "tsup src/index.ts src/fs-node.ts src/fs-browser.ts --watch",
+    "build": "tsup src/index.ts src/fs-node.ts src/fs-browser.ts --format cjs,esm --dts --minify --clean --splitting",
     "test": "vitest run"
   },
   "exports": {
