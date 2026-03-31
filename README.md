@@ -112,17 +112,6 @@ export default dbConfig;
 
 ---
 
-### 📦 容器化部署 (Docker / K8s)
-
-`safe-env` 遵循 **Fail Fast (快速失败)** 原则，是 Docker 部署的绝佳搭档：
-
-1. **环境变量覆盖**：Docker 通过 `-e` 注入的变量会自动覆盖 `.env` 文件中的值，库会优先读取系统级配置。
-2. **启动即校验**：如果运维人员在 K8s 中漏配了一个必填的 Secret，容器会在启动的第一秒失败退出（`process.exit(1)`），而不是在运行数小时后才崩溃。
-3. **清晰日志**：容器日志会直接显示精美的错误表格，开发者和运维可以瞬间定位配置错误。
-
----
-
 ### 📦 跨平台支持
-- **前端**: Vite, Webpack, Create React App (CRA)。
-- **后端**: Node.js (ESM/CJS), Bun, Deno。
-- **部署**: Docker, Kubernetes, Serverless (Vercel/Cloudflare)。
+- **前端**: Vite (Vue/React/Vanilla)。
+- **后端**: Node.js (ESM/CJS)。

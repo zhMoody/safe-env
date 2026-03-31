@@ -8,8 +8,8 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "browser": {
-    "node:fs": false,
-    "node:path": false
+    "./dist/fs-node.js": "./dist/fs-browser.js",
+    "./dist/fs-node.cjs": "./dist/fs-browser.js"
   },
   "scripts": {
     "dev": "tsup src/index.ts --watch",
