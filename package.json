@@ -7,6 +7,10 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "browser": {
+    "node:fs": false,
+    "node:path": false
+  },
   "scripts": {
     "dev": "tsup src/index.ts --watch",
     "build": "tsup src/index.ts --format cjs,esm --dts --minify",

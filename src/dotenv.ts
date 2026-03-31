@@ -1,8 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-
 /***
  *  将 .env 内容字符串解析为对象
+ *  这个函数是纯 JS，在浏览器和 Node 都能跑
  * */
 export function parseDotEnv(content: string): Record<string, string> {
   const env: Record<string, string> = {};
@@ -29,15 +27,27 @@ export function parseDotEnv(content: string): Record<string, string> {
   return env;
 }
 
+/**
+ * 只有在 Node 环境下才调用的加载器
+ */
 export function loadDotEnv(filePath = ".env"): Record<string, string> {
+  // 检查是否在 Node 环境 (简单的跨平台检查)
+  const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
+  
+  if (!isNode) return {};
+
   try {
+    // 动态加载 Node 原生模块，防止浏览器打包工具静态分析报错
+    const fs = require("node:fs");
+    const path = require("node:path");
+    
     const fullPath = path.resolve(process.cwd(), filePath);
     if (fs.existsSync(fullPath)) {
       const content = fs.readFileSync(fullPath, "utf-8");
       return parseDotEnv(content);
     }
   } catch (err) {
-    console.warn(`⚠️ SafeEnv: Failed to load ${filePath}`, err);
+    // 忽略加载错误
   }
   return {};
 }

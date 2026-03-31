@@ -11,36 +11,46 @@ import { reportErrors } from "./reporter.js";
 interface SafeEnvOptions {
   mode?: string; // 显式指定模式，如 'development'
   loadProcessEnv?: boolean;
+  source?: Record<string, any>; // 新增：支持手动传入数据源（如 Vite 的 import.meta.env）
 }
 
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions = {},
 ): InferSchema<T> {
-  // 1. 确定当前模式 (优先使用传入的 mode，其次用系统 NODE_ENV，默认 development)
-  const mode = options.mode || process.env.NODE_ENV || "development";
-  const { loadProcessEnv = true } = options;
+  const { loadProcessEnv = true, source: manualSource } = options;
 
-  // 2. 定义加载顺序（越往后优先级越高，会覆盖前面的）
-  const filesToLoad = [
-    ".env",
-    ".env.local",
-    `.env.${mode}`,
-    `.env.${mode}.local`,
-  ];
+  let source: Record<string, any>;
 
-  // 3. 逐个加载并合并
-  let combinedData: Record<string, string> = {};
-  for (const file of filesToLoad) {
-    const data = loadDotEnv(file);
-    combinedData = { ...combinedData, ...data };
+  if (manualSource) {
+    // 1. 如果手动提供了 source，直接使用它
+    source = manualSource;
+  } else {
+    // 2. 否则，执行 Node 环境的自动加载逻辑
+    const mode =
+      options.mode ||
+      (typeof process !== "undefined"
+        ? process.env.NODE_ENV
+        : "development");
+    const filesToLoad = [
+      ".env",
+      ".env.local",
+      `.env.${mode}`,
+      `.env.${mode}.local`,
+    ];
+
+    let combinedData: Record<string, string> = {};
+    for (const file of filesToLoad) {
+      combinedData = { ...combinedData, ...loadDotEnv(file) };
+    }
+
+    source = {
+      ...combinedData,
+      ...(loadProcessEnv && typeof process !== "undefined"
+        ? process.env
+        : {}),
+    };
   }
-
-  // 4. 最后合并系统环境变量 (系统变量通常拥有最高优先级)
-  const source = {
-    ...combinedData,
-    ...(loadProcessEnv ? process.env : {}),
-  };
 
   const result = {} as any;
   const errors: EnvError[] = [];
@@ -70,7 +80,14 @@ export function safeEnv<T extends Schema>(
 
   if (errors.length > 0) {
     reportErrors(errors);
-    process.exit(1);
+    // 只有在 Node 环境下才直接退出
+    if (typeof process !== "undefined" && process.exit) {
+      process.exit(1);
+    } else {
+      throw new Error(
+        "SafeEnv: Configuration validation failed. Check console for details.",
+      );
+    }
   }
 
   return result;
