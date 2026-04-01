@@ -1,6 +1,7 @@
 {
   "name": "@zh-moody/safe-env",
-  "version": "0.1.3",
+  "version": "0.1.10",
+
   "description": "Type-safe environment variables for Node.js and Browser with schema validation.",
   "author": "Moody",
   "license": "MIT",
