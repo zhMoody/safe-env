@@ -32,6 +32,7 @@ export function viteSafeEnv(schema: Schema, options: ViteSafeEnvOptions = {}): P
         // 因为 Vite 已经帮我们处理好了各种 .env.local 优先级
         safeEnv(schema, {
           source: env,
+          prefix: Array.isArray(prefix) ? prefix[0] : prefix, // 传递 prefix
           loadProcessEnv: false // 在 Vite 插件中，我们只关心 Vite 注入的变量
         });
         
