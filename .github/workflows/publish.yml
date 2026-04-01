@@ -24,5 +24,10 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Debug OIDC Environment
+        run: |
+          echo "OIDC token URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:+Present}"
+          npm config list
+
       - name: Publish to npm
         run: npm publish --access public --provenance
