@@ -26,8 +26,8 @@
     "./dist/fs-node.cjs": "./dist/fs-browser.js"
   },
   "scripts": {
-    "dev": "tsup src/index.ts src/fs-node.ts src/fs-browser.ts --watch",
-    "build": "tsup src/index.ts src/fs-node.ts src/fs-browser.ts --format cjs,esm --dts --minify --clean --splitting",
+    "dev": "tsup src/index.ts src/vite.ts src/fs-node.ts src/fs-browser.ts --watch",
+    "build": "tsup src/index.ts src/vite.ts src/fs-node.ts src/fs-browser.ts --format cjs,esm --dts --minify --clean --splitting",
     "test": "vitest run"
   },
   "exports": {
@@ -35,6 +35,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
     }
   },
   "keywords": [
@@ -49,10 +54,14 @@
   "files": [
     "dist"
   ],
+  "peerDependencies": {
+    "vite": ">=3.0.0"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
+    "vite": "^6.2.0",
     "vitest": "^4.1.2"
   }
 }

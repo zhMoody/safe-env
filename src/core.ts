@@ -21,10 +21,13 @@ export function safeEnv<T extends Schema>(
 ): InferSchema<T> {
   const { loadProcessEnv = true, source: manualSource, prefix = "" } = options;
 
+  // 如果手动传入了 source 但它是 undefined (例如在 Node 环境读取 import.meta.env)
+  // 且不是在运行真正的校验流程（由 Vite 插件手动触发），则返回一个空代理或跳过
+  // 这里采取最简单的策略：如果 manualSource 存在但未定义，我们将其视为空对象，防止崩溃
   let source: Record<string, any>;
 
-  if (manualSource) {
-    source = manualSource;
+  if (manualSource !== undefined) {
+    source = manualSource || {};
   } else {
     const mode =
       options.mode ||
