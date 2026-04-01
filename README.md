@@ -91,12 +91,23 @@ export default dbConfig;
 #### 1. 定义字段 (`s.xxx`)
 - `s.string(default?)`: 字符串。若无默认值则必填。
 - `s.number(default?)`: 数字。自动将字符串转为 `number`。
-- `s.boolean(default?)`: 布尔。将 `"true"` 解析为 `true`。
+- `s.boolean(default?)`: 布尔型。支持将 `"true"`, `"1"`, `"yes"`, `"on"` 解析为 `true`（大小写无关）。
+- `s.array(default?, separator?)`: 数组型。支持将字符串按分隔符（默认 `,`）拆分为数组。
+  - 示例：`s.array([], '|')`
 - `s.enum(options, default?)`: 枚举。值必须在数组中。
   - 示例：`s.enum(['dev', 'prod'], 'dev')`
 
-#### 2. 增强校验 (链式调用)
+#### 2. 数据处理与增强 (链式调用)
 每个通过 `s` 定义的字段都可以调用以下方法进行增强：
+
+- **`.transform(fn)`**: **[New]** 自定义数据转换，支持链式调用。
+  ```typescript
+  // 示例 1: 将字符串转大写
+  KEY: s.string().transform(v => v.toUpperCase())
+
+  // 示例 2: 将逗号分隔的数字字符串转为数字数组
+  SCORES: s.array().transform(arr => arr.map(Number))
+  ```
 
 - **`.from(key)`**: 指定环境变量名。
   ```typescript

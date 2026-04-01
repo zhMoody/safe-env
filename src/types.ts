@@ -4,7 +4,7 @@
  * @LastEditTime: 2026-03-31 14:58:46
  * @FilePath: \safe-env\src\types.ts
  */
-export type BaseType = "string" | "number" | "boolean" | "enum";
+export type BaseType = "string" | "number" | "boolean" | "enum" | "array";
 
 export interface FieldDefinition<T = any> {
   type: BaseType;
@@ -27,6 +27,7 @@ export interface FieldDefinition<T = any> {
   validate: (fn: (val: T) => boolean, message?: string) => FieldDefinition<T>;
   min: (val: number) => FieldDefinition<T>;
   max: (val: number) => FieldDefinition<T>;
+  transform: <U>(fn: (val: T) => U) => FieldDefinition<U>;
 }
 
 export type Schema = Record<string, FieldDefinition>;
