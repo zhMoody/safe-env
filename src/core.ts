@@ -58,10 +58,20 @@ export function safeEnv<T extends Schema>(
 
     // 自动寻找 Key：优先用 definition.sourceKey，
     // 其次尝试 prefix + key (如 VITE_PORT)，
-    // 最后用原 key (如 PORT)
-    const lookupKey =
-      definition.sourceKey ||
-      (source[prefix + key] !== undefined ? prefix + key : key);
+    // 如果 prefix + key 不存在且没有 prefix，或者 prefix + key 也不在 source 中，
+    // 则尝试原 key (如 PORT)
+    let lookupKey = definition.sourceKey;
+    if (!lookupKey) {
+      const prefixedKey = prefix + key;
+      if (source[prefixedKey] !== undefined) {
+        lookupKey = prefixedKey;
+      } else if (source[key] !== undefined) {
+        lookupKey = key;
+      } else {
+        // 如果都没找到，默认显示带前缀的 key (对于报错更友好)
+        lookupKey = prefix ? prefixedKey : key;
+      }
+    }
 
     const rawValue = source[lookupKey];
 
