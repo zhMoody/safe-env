@@ -1,6 +1,6 @@
 {
   "name": "@zh-moody/safe-env",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Type-safe environment variables for Node.js and Browser with schema validation.",
   "author": "Moody",
   "license": "MIT",
@@ -11,7 +11,8 @@
   },
   "publishConfig": {
     "access": "public",
-    "provenance": true
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
   },
   "bugs": {
     "url": "https://github.com/zhMoody/safe-env/issues"

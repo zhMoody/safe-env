@@ -4,12 +4,13 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+  id-token: write # 提升到全局，确保权限被赋予给整个 Workflow
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -19,15 +20,16 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install -g npm@latest
+          npm install
 
       - name: Build project
         run: npm run build
 
-      - name: Debug OIDC Environment
-        run: |
-          echo "OIDC token URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:+Present}"
-          npm config list
-
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: |
+          # 针对组织包 (@zh-moody)，强制清空针对 registry 的本地 token 设置，
+          # 这样 npm 在发现没 token 时，会自动 fallback 到 OIDC 流程。
+          npm config set //registry.npmjs.org/:_authToken ""
+          npm publish --access public --provenance
