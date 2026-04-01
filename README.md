@@ -21,6 +21,29 @@
 
 ---
 
+### 📦 安装 (Installation)
+
+```bash
+npm install @zh-moody/safe-env
+# 或者
+pnpm add @zh-moody/safe-env
+```
+
+---
+
+### 🛠️ 准备工作 (Prerequisites)
+
+在项目根目录下创建一个 `.env` 文件（这是本库解析数据的来源）：
+
+```bash
+# .env 示例
+VITE_API_URL=https://api.com
+VITE_PORT=3000
+VITE_FEATURES=auth,storage
+```
+
+---
+
 ### 🚀 快速上手
 
 #### 🔹 [Vite / React / Vue] 使用
