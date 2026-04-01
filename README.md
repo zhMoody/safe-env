@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/zhMoody/safe-env?style=flat-square)](https://github.com/zhMoody/safe-env)
 
+简体中文 | [English](./README.en.md)
+
 **告别 `undefined`！在应用启动的第一行，拦截所有错误配置。**
 
 无论你在写 Vue、React 还是 Node.js，环境变量配置永远是 Bug 的温床。`safe-env` 通过强类型 Schema 校验，确保你的应用在拥有正确配置的前提下才启动。
