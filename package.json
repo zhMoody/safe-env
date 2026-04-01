@@ -1,6 +1,6 @@
 {
   "name": "@zh-moody/safe-env",
-  "version": "0.1.13",
+  "version": "0.1.14",
 
   "description": "Type-safe environment variables for Node.js and Browser with schema validation.",
   "author": "Moody",
@@ -8,10 +8,11 @@
   "homepage": "https://github.com/zhMoody/safe-env#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zhMoody/safe-env.git"
+    "url": "https://github.com/zhMoody/safe-env"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "bugs": {
     "url": "https://github.com/zhMoody/safe-env/issues"
