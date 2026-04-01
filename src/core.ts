@@ -1,10 +1,10 @@
 /*
  * @Author: moody
  * @Date: 2026-03-31 14:56:13
- * @LastEditTime: 2026-03-31 14:58:30
+ * @LastEditTime: 2026-04-01 13:50:00
  * @FilePath: \safe-env\src\core.ts
  */
-import { loadDotEnv } from "./dotenv.js";
+import { loadDotEnv } from "./fs-node.js";
 import { InferSchema, Schema, EnvError } from "./types.js";
 import { reportErrors } from "./reporter.js";
 
@@ -34,8 +34,8 @@ export function safeEnv<T extends Schema>(
       (typeof process !== "undefined" ? process.env.NODE_ENV : "development");
     const filesToLoad = [
       ".env",
-      ".env.local",
       `.env.${mode}`,
+      ".env.local",
       `.env.${mode}.local`,
     ];
 
@@ -101,7 +101,8 @@ export function safeEnv<T extends Schema>(
   if (errors.length > 0) {
     reportErrors(errors);
     const isRealNode = typeof process !== "undefined" && !!process.exit;
-    if (isRealNode && !manualSource) {
+    const isTest = typeof process !== "undefined" && process.env.NODE_ENV === "test";
+    if (isRealNode && !manualSource && !isTest) {
       process.exit(1);
     } else {
       throw new Error("SafeEnv: Configuration validation failed.");

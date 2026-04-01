@@ -25,5 +25,3 @@ export function parseDotEnv(content: string): Record<string, string> {
   }
   return env;
 }
-
-export { loadDotEnv } from "./fs-node.js";

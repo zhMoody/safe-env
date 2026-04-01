@@ -10,79 +10,66 @@
 
 ---
 
-### 🔗 链接 (Links)
-
-- **GitHub Repository**: [https://github.com/zhMoody/safe-env](https://github.com/zhMoody/safe-env)
-- **NPM Package**: [https://www.npmjs.com/package/@zh-moody/safe-env](https://www.npmjs.com/package/@zh-moody/safe-env)
-
----
-
 ### 🚀 核心特性
 
+- **构建时预校验**：提供 Vite 插件，在 `npm run dev` 或 `build` 的瞬间拦截错误，无需打开浏览器。
+- **IDE 增强**：支持 `.description()` 字段，直接在代码中通过悬停查看变量用途。
+- **更强的数据转换**：内置 `s.array()`, `s.boolean()` 增强转换，支持 `.transform()` 链式 Pipe 处理。
+- **内置常用规则**：提供 `.url()`, `.email()`, `.regex()` 等高频校验，无需依赖 zod。
 - **类型安全**：自动推断配置对象类型，拥有完美的 IDE 补全。
-- **链式校验**：内置 `min`, `max`, `validate`, `enum` 等校验逻辑。
-- **自动前缀**：支持 `VITE_` 或 `REACT_APP_` 自动补全，代码里用 `PORT`，配置里用 `VITE_PORT`。
-- **跨端兼容**：自动识别 Node/浏览器环境，支持双端“防御性退出”。
-- **极致轻量**：Minified 体积约 **2.6 KB**，Gzip 后仅 **1.3 KB**，零运行时依赖。
+- **极致轻量**：Minified 体积约 **2KB**，零运行时依赖。
 
 ---
 
 ### 🚀 快速上手
 
-#### 🔹 [Vite / React / Vue] 端使用
-在前端，环境变量由构建工具（如 Vite）注入到 `import.meta.env` 中。
+#### 🔹 [Vite / React / Vue] 使用
+在前端，建议配合 Vite 插件实现**构建时校验**。
 
-**1. 准备 `.env` 文件：**
-```bash
-VITE_API_URL=https://api.com
-VITE_PORT=3000
+**1. 配置 Vite 插件 (`vite.config.ts`)：**
+```typescript
+import { viteSafeEnv } from '@zh-moody/safe-env/vite';
+import { schema } from './src/env'; // 建议将 schema 提取到独立文件
+
+export default {
+  plugins: [
+    viteSafeEnv(schema) // 构建时校验，配置错误直接停止构建
+  ]
+}
 ```
 
-**2. 定义配置 (`src/env.ts`)：**
+**2. 定义配置并导出 (`src/env.ts`)：**
 ```typescript
 import { safeEnv, s } from '@zh-moody/safe-env';
 
-export const config = safeEnv({
-  apiUrl: s.string().from('VITE_API_URL'), // 别名映射
-  port: s.number(3000).from('VITE_PORT'),
-}, { 
-  source: import.meta.env // ⚠️ 浏览器端必须手动传入数据源
+export const schema = {
+  VITE_API_URL: s.string().url().description("后端 API 地址"),
+  VITE_PORT: s.number(3000).description("服务端口"),
+  VITE_FEATURES: s.array().description("启用的特性列表")
+};
+
+export const env = safeEnv(schema, { 
+  source: import.meta.env 
 });
 ```
 
 ---
 
-#### 🔸 [Node.js / 服务端] 端使用
+#### 🔸 [Node.js / 服务端] 使用
 在后端，库会自动寻找并解析磁盘上的 `.env` 文件。
 
-**1. 准备 `.env` 文件：**
-```bash
-DB_HOST=localhost
-DB_PORT=5432
-```
-
-**2. 定义配置 (`src/db.ts`)：**
+**1. 定义配置 (`src/config.ts`)：**
 ```typescript
 import { safeEnv, s } from '@zh-moody/safe-env';
 
-const dbConfig = safeEnv({
-  DB_HOST: s.string('localhost'),
-  DB_PORT: s.number(5432)
-}); // ⚠️ Node 端无需传 source，会自动读取文件
+const config = safeEnv({
+  DB_HOST: s.string('localhost').description("数据库主机"),
+  DB_PORT: s.number(5432).min(1).max(65535),
+  ADMIN_EMAIL: s.string().email()
+});
 
-export default dbConfig;
+export default config;
 ```
-
----
-
-### 📂 核心对比：Schema 与 .env 对应关系
-
-| Schema 定义 | .env 中的写法 | 结果 |
-| :--- | :--- | :--- |
-| `s.string()` | `KEY=val` | ✅ 通过 |
-| `s.string()` | *(未填写)* | ❌ **报错并拦截启动** |
-| `s.string('App')` | `KEY=` (留空) | ✅ 自动降级为 `'App'` |
-| `s.number()` | `KEY=abc` | ❌ **报错：Invalid number** |
 
 ---
 
@@ -93,63 +80,65 @@ export default dbConfig;
 - `s.number(default?)`: 数字。自动将字符串转为 `number`。
 - `s.boolean(default?)`: 布尔型。支持将 `"true"`, `"1"`, `"yes"`, `"on"` 解析为 `true`（大小写无关）。
 - `s.array(default?, separator?)`: 数组型。支持将字符串按分隔符（默认 `,`）拆分为数组。
-  - 示例：`s.array([], '|')`
 - `s.enum(options, default?)`: 枚举。值必须在数组中。
-  - 示例：`s.enum(['dev', 'prod'], 'dev')`
 
-#### 2. 数据处理与增强 (链式调用)
-每个通过 `s` 定义的字段都可以调用以下方法进行增强：
+#### 2. 校验与增强 (链式调用)
 
-- **`.transform(fn)`**: **[New]** 自定义数据转换，支持链式调用。
+每个字段都可以通过链式调用进行深度定制：
+
+- **`.url()`**: 校验是否为合法 URL 格式。
   ```typescript
-  // 示例 1: 将字符串转大写
-  KEY: s.string().transform(v => v.toUpperCase())
+  API_URL: s.string().url()
+  ```
+- **`.email()`**: 校验是否为合法邮箱格式。
+  ```typescript
+  CONTACT: s.string().email()
+  ```
+- **`.regex(pattern, msg?)`**: 自定义正则校验。
+  ```typescript
+  VERSION: s.string().regex(/^v\d+\.\d+\.\d+$/, "版本号必须以 v 开头")
+  ```
+- **`.description(text)`**: 添加变量描述。该描述会映射到 IDE 的悬停提示中。
+  ```typescript
+  PORT: s.number(3000).description("本地服务器端口")
+  ```
+- **`.transform(fn)`**: 自定义数据转换，支持多级链式 Pipe。
+  ```typescript
+  // 示例 1: 拿到字符串 -> 去空格 -> 转大写
+  NAME: s.string().transform(v => v.trim()).transform(v => v.toUpperCase())
 
   // 示例 2: 将逗号分隔的数字字符串转为数字数组
   SCORES: s.array().transform(arr => arr.map(Number))
   ```
-
-- **`.from(key)`**: 指定环境变量名。
+- **`.from(key)`**: 映射环境变量名（别名）。
   ```typescript
-  // 即使变量叫 VITE_PATH，代码里也可以叫 port
-  port: s.number().from('VITE_PATH')
+  // 即使环境变量叫 VITE_SERVER_PORT，代码里也可以叫 port
+  port: s.number().from('VITE_SERVER_PORT')
   ```
-
 - **`.min(n)` / `.max(n)`**: 限制数字取值范围。
   ```typescript
-  // 端口必须在 1-65535 之间
-  PORT: s.number().min(1).max(65535)
+  // 端口必须在 1024-65535 之间
+  PORT: s.number().min(1024).max(65535)
   ```
-
-- **`.validate(fn, msg?)`**: 自定义校验（如：邮箱、URL 格式）。
+- **`.validate(fn, msg?)`**: 完全自定义的校验逻辑。
   ```typescript
-  // 必须是安全地址
-  API: s.string().validate(v => v.startsWith('https'), 'Must be HTTPS')
+  // 必须是特定的内部域名
+  INTERNAL_URL: s.string().validate(v => v.endsWith('.internal.com'), 'Must be an internal URL')
   ```
 
-#### 3. 加载选项 (`SafeEnvOptions`)
-
-| 选项 | 适用环境 | 说明 |
-| :--- | :--- | :--- |
-| `source` | **[Vite/浏览器]** | **必填**。传入 `import.meta.env` 或 `process.env`。 |
-| `prefix` | **通用** | **可选**。自动补全前缀，如 `prefix: 'VITE_'`。 |
-| `mode` | **[Node.js]** | **可选**。指定模式（dev/prod）以加载对应的 `.env.prod` 等文件。 |
-| `loadProcessEnv` | **[Node.js]** | **可选**。是否加载系统环境变量，默认 `true`。 |
+#### 3. 加载规则 (Env Priority)
+`safe-env` 遵循标准的优先级顺序（从低到高）：
+1. `.env` (基础配置)
+2. `.env.[mode]` (环境配置，如 `.env.development`)
+3. `.env.local` (本地覆盖)
+4. `.env.[mode].local` (环境特定的本地覆盖)
 
 ---
 
-### 🎨 错误报告：长什么样？
-
-当校验失败时，`safe-env` 会在控制台打印一个显眼的表格，告诉你哪个字段错了、原因是什么以及当前的值。在浏览器中这会抛出一个 Error 阻止应用启动，在 Node.js 中会直接 `process.exit(1)`。
-
----
-
-### 📦 跨平台支持
-- **前端**: Vite (Vue/React/Vanilla)。
-- **后端**: Node.js (ESM/CJS)。
+### 🎨 错误报告
+当校验失败时，`safe-env` 会在控制台打印精美的表格，清晰展示：**Key / 错误原因 / 当前值**。
 
 ---
 
 ### 📄 开源协议 (License)
-
-[MIT License](./LICENSE) - Copyright (c) 2025 Moody.
+[MIT License](./LICENSE) - Copyright (c) 2026 Moody.

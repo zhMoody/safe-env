@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # 提升到全局，确保权限被赋予给整个 Workflow
+  id-token: write 
 
 jobs:
   publish:
@@ -29,7 +29,5 @@ jobs:
 
       - name: Publish to npm
         run: |
-          # 针对组织包 (@zh-moody)，强制清空针对 registry 的本地 token 设置，
-          # 这样 npm 在发现没 token 时，会自动 fallback 到 OIDC 流程。
           npm config set //registry.npmjs.org/:_authToken ""
           npm publish --access public --provenance

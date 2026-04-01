@@ -1,18 +1,18 @@
 /*
  * @Author: moody
  * @Date: 2026-03-31 14:47:38
- * @LastEditTime: 2026-04-01 13:00:00
+ * @LastEditTime: 2026-04-01 13:10:00
  * @FilePath: \safe-env\src\schema.ts
  */
 import { FieldDefinition, BaseType } from "./types.js";
 
-function createField<T>(
+function createField<T, D extends string = string>(
   type: BaseType,
   defaultValue: T | undefined,
   parse: (v: any) => T,
   options: any[] = [],
-): FieldDefinition<T> {
-  const definition: FieldDefinition<T> = {
+): FieldDefinition<T, D> {
+  const definition: FieldDefinition<T, any> = {
     type,
     default: defaultValue,
     required: defaultValue === undefined,
@@ -36,14 +36,35 @@ function createField<T>(
       this.metadata = { ...this.metadata, max: val };
       return this;
     },
-    transform<U>(fn: (val: T) => U): FieldDefinition<U> {
+    transform<U>(fn: (val: T) => U): FieldDefinition<U, any> {
       const originalParse = this.parse;
       this.parse = (v: any) => fn(originalParse(v)) as any;
-      return this as unknown as FieldDefinition<U>;
+      return this as unknown as FieldDefinition<U, any>;
+    },
+    url() {
+      return this.validate((v) => {
+        try {
+          new URL(String(v));
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }, "Invalid URL format");
+    },
+    email() {
+      const EMAIL_REGEX = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+      return this.validate((v) => EMAIL_REGEX.test(String(v)), "Invalid email format");
+    },
+    regex(pattern: RegExp, message = "Value does not match pattern") {
+      return this.validate((v) => pattern.test(String(v)), message);
+    },
+    description<NewD extends string>(text: NewD): FieldDefinition<T, NewD> {
+      this.metadata = { ...this.metadata, description: text };
+      return this as unknown as FieldDefinition<T, NewD>;
     },
   };
 
-  return definition;
+  return definition as FieldDefinition<T, D>;
 }
 
 export const s = {
