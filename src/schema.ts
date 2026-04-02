@@ -81,8 +81,11 @@ export const s = {
   boolean: (defaultValue?: boolean): FieldDefinition<boolean> =>
     createField("boolean", defaultValue, (v) => {
       if (typeof v === "boolean") return v;
-      const str = String(v).toLowerCase();
-      return str === "true" || str === "1" || str === "yes" || str === "on";
+      if (v === undefined || v === "") return false;
+      const str = String(v).toLowerCase().trim();
+      if (str === "true" || str === "1" || str === "yes" || str === "on") return true;
+      if (str === "false" || str === "0" || str === "no" || str === "off") return false;
+      throw new Error(`Invalid boolean: ${v}`);
     }),
 
   enum: <T extends string>(

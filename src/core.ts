@@ -13,13 +13,19 @@ interface SafeEnvOptions {
   loadProcessEnv?: boolean;
   source?: Record<string, any>;
   prefix?: string;
+  cwd?: string;
 }
 
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions = {},
-): InferSchema<T> {
-  const { loadProcessEnv = true, source: manualSource, prefix = "" } = options;
+): Readonly<InferSchema<T>> {
+  const {
+    loadProcessEnv = true,
+    source: manualSource,
+    prefix = "",
+    cwd,
+  } = options;
 
   // 如果手动传入了 source 但它是 undefined (例如在 Node 环境读取 import.meta.env)
   // 且不是在运行真正的校验流程（由 Vite 插件手动触发），则返回一个空代理或跳过
@@ -41,7 +47,7 @@ export function safeEnv<T extends Schema>(
 
     let combinedData: Record<string, string> = {};
     for (const file of filesToLoad) {
-      combinedData = { ...combinedData, ...loadDotEnv(file) };
+      combinedData = { ...combinedData, ...loadDotEnv(file, cwd) };
     }
 
     source = {
@@ -111,7 +117,8 @@ export function safeEnv<T extends Schema>(
   if (errors.length > 0) {
     reportErrors(errors);
     const isRealNode = typeof process !== "undefined" && !!process.exit;
-    const isTest = typeof process !== "undefined" && process.env.NODE_ENV === "test";
+    const isTest =
+      typeof process !== "undefined" && process.env.NODE_ENV === "test";
     if (isRealNode && !manualSource && !isTest) {
       process.exit(1);
     } else {
@@ -119,5 +126,5 @@ export function safeEnv<T extends Schema>(
     }
   }
 
-  return result;
+  return Object.freeze(result);
 }

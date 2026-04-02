@@ -78,6 +78,17 @@ export const env = safeEnv(schema, {
 });
 ```
 
+> **💡 最佳实践：防止 Vite 类型污染**
+> 为了彻底禁用 `import.meta.env.XXX` 的原生不安全提示，建议修改项目根目录的 `src/vite-env.d.ts`：
+> ```typescript
+> /// <reference types="vite/client" />
+> 
+> interface ImportMetaEnv {
+>   // 将其设为空，强制开发者使用你定义的 env 对象
+>   [key: string]: never;
+> }
+> ```
+
 ---
 
 #### 🔸 [Node.js / 服务端] 使用
@@ -91,10 +102,21 @@ const config = safeEnv({
   DB_HOST: s.string('localhost').description("数据库主机"),
   DB_PORT: s.number(5432).min(1).max(65535),
   ADMIN_EMAIL: s.string().email()
+}, {
+  // 可选：在 Monorepo 或特定目录下运行时，显式指定 .env 所在目录
+  // cwd: '/path/to/project-root'
 });
 
 export default config;
 ```
+
+---
+
+### 🎨 安全与性能优化
+`@zh-moody/safe-env` 不仅仅是校验器，更是你应用的防护层：
+- **深度不可变 (Immutable)**：解析后的 `env` 对象已通过 `Object.freeze` 深度冻结，禁止任何运行时的修改行为。
+- **Monorepo 友好**：支持 `cwd` 参数，解决跨目录执行时找不到 `.env` 文件的路径陷阱。
+- **鲁棒的解析逻辑**：针对 `s.boolean()` 强化了对空字符串 `""` 的处理，确保逻辑一致性。
 
 ---
 
