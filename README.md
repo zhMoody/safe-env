@@ -6,19 +6,20 @@
 
 简体中文 | [English](./README.en.md)
 
-**告别 `undefined`！在应用启动的第一行，拦截所有错误配置。**
+**告别 `undefined`！在应用启动的第一行，拦截所有配置隐患。**
 
-无论你在写 Vue、React 还是 Node.js，环境变量配置永远是 Bug 的温床。`safe-env` 通过强类型 Schema 校验，确保你的应用在拥有正确配置的前提下才启动。
+无论你在写 Vue、React 还是 Node.js，环境变量配置永远是生产事故的高发区。`safe-env` 通过强类型 Schema 校验与运行时保护，确保你的应用始终运行在预期的配置之上。
 
 ---
 
 ### 🚀 核心特性
 
-- **构建时预校验**：提供 Vite 插件，在 `npm run dev` 或 `build` 的瞬间拦截错误，无需打开浏览器。
-- **IDE 增强**：支持 `.description()` 字段，直接在代码中通过悬停查看变量用途。
-- **更强的数据转换**：内置 `s.array()`, `s.boolean()` 增强转换，支持 `.transform()` 链式 Pipe 处理。
-- **内置常用规则**：提供 `.url()`, `.email()`, `.regex()` 等高频校验，无需依赖 zod。
-- **类型安全**：自动推断配置对象类型，拥有完美的 IDE 补全。
+- **构建时预校验**：提供 Vite 插件，在开发启动或打包瞬间拦截非法配置。
+- **敏感数据脱敏**：支持 `.secret()` 标记，确保密钥等敏感信息不会泄露在日志或报错表格中。
+- **运行时深度冻结**：解析后的配置对象默认开启 `Object.freeze`，杜绝任何运行时的非法篡改。
+- **Monorepo 精准定位**：支持 `cwd` 参数，可显式指定配置文件检索目录，适配复杂的项目架构。
+- **IDE 增强**：支持 `.description()`，在代码中通过悬停直接查看变量用途与文档。
+- **严谨的类型解析**：内置 `s.array()`, `s.boolean()` 增强转换，支持 `.transform()` 链式 Pipe 处理。
 - **极致轻量**：Gzip 压缩后仅 **1.9 KB**，零运行时依赖。
 
 ---
@@ -27,21 +28,6 @@
 
 ```bash
 npm install @zh-moody/safe-env
-# 或者
-pnpm add @zh-moody/safe-env
-```
-
----
-
-### 🛠️ 准备工作 (Prerequisites)
-
-在项目根目录下创建一个 `.env` 文件（这是本库解析数据的来源）：
-
-```bash
-# .env 示例
-VITE_API_URL=https://api.com
-VITE_PORT=3000
-VITE_FEATURES=auth,storage
 ```
 
 ---
@@ -54,11 +40,11 @@ VITE_FEATURES=auth,storage
 **1. 配置 Vite 插件 (`vite.config.ts`)：**
 ```typescript
 import { viteSafeEnv } from '@zh-moody/safe-env/vite';
-import { schema } from './src/env'; // 建议将 schema 提取到独立文件
+import { schema } from './src/env';
 
 export default {
   plugins: [
-    viteSafeEnv(schema) // 构建时校验，配置错误直接停止构建
+    viteSafeEnv(schema)
   ]
 }
 ```
@@ -70,7 +56,6 @@ import { safeEnv, s } from '@zh-moody/safe-env';
 export const schema = {
   VITE_API_URL: s.string().url().description("后端 API 地址"),
   VITE_PORT: s.number(3000).description("服务端口"),
-  VITE_FEATURES: s.array().description("启用的特性列表")
 };
 
 export const env = safeEnv(schema, { 
@@ -79,12 +64,9 @@ export const env = safeEnv(schema, {
 ```
 
 > **💡 最佳实践：防止 Vite 类型污染**
-> 为了彻底禁用 `import.meta.env.XXX` 的原生不安全提示，建议修改项目根目录的 `src/vite-env.d.ts`：
+> 为彻底禁用 `import.meta.env.XXX` 的原生提示，建议修改 `src/vite-env.d.ts`：
 > ```typescript
-> /// <reference types="vite/client" />
-> 
 > interface ImportMetaEnv {
->   // 将其设为空，强制开发者使用你定义的 env 对象
 >   [key: string]: never;
 > }
 > ```
@@ -92,18 +74,17 @@ export const env = safeEnv(schema, {
 ---
 
 #### 🔸 [Node.js / 服务端] 使用
-在后端，库会自动寻找并解析磁盘上的 `.env` 文件。
+在后端环境，库会自动检索并解析磁盘上的 `.env` 系列文件。
 
 **1. 定义配置 (`src/config.ts`)：**
 ```typescript
 import { safeEnv, s } from '@zh-moody/safe-env';
 
 const config = safeEnv({
-  DB_HOST: s.string('localhost').description("数据库主机"),
+  DB_PASSWORD: s.string().secret().description("数据库密码"),
   DB_PORT: s.number(5432).min(1).max(65535),
-  ADMIN_EMAIL: s.string().email()
 }, {
-  // 可选：在 Monorepo 或特定目录下运行时，显式指定 .env 所在目录
+  // 在 Monorepo 或特定部署环境下，可显式指定 .env 所在目录
   // cwd: '/path/to/project-root'
 });
 
@@ -112,82 +93,56 @@ export default config;
 
 ---
 
-### 🎨 安全与性能优化
-`@zh-moody/safe-env` 不仅仅是校验器，更是你应用的防护层：
-- **深度不可变 (Immutable)**：解析后的 `env` 对象已通过 `Object.freeze` 深度冻结，禁止任何运行时的修改行为。
-- **Monorepo 友好**：支持 `cwd` 参数，解决跨目录执行时找不到 `.env` 文件的路径陷阱。
-- **鲁棒的解析逻辑**：针对 `s.boolean()` 强化了对空字符串 `""` 的处理，确保逻辑一致性。
-
----
-
 ### 🛠️ API 详解
 
 #### 1. 定义字段 (`s.xxx`)
 - `s.string(default?)`: 字符串。若无默认值则必填。
-- `s.number(default?)`: 数字。自动将字符串转为 `number`。
-- `s.boolean(default?)`: 布尔型。支持将 `"true"`, `"1"`, `"yes"`, `"on"` 解析为 `true`（大小写无关）。
+- `s.number(default?)`: 数字。自动转换为 `number` 类型并校验合法性。
+- `s.boolean(default?)`: 布尔型。支持将 `"true"`, `"1"`, `"yes"`, `"on"` 解析为 `true`。
 - `s.array(default?, separator?)`: 数组型。支持将字符串按分隔符（默认 `,`）拆分为数组。
-- `s.enum(options, default?)`: 枚举。值必须在数组中。
+- `s.enum(options, default?)`: 枚举。值必须在预设数组中。
 
 #### 2. 校验与增强 (链式调用)
 
 每个字段都可以通过链式调用进行深度定制：
 
-- **`.url()`**: 校验是否为合法 URL 格式。
+- **`.secret()`**: 标记敏感数据，报错时该值会以 `********` 遮罩显示。
+  ```typescript
+  PASSWORD: s.string().secret()
+  ```
+- **`.url()` / `.email()`**: 常用格式校验。
   ```typescript
   API_URL: s.string().url()
   ```
-- **`.email()`**: 校验是否为合法邮箱格式。
-  ```typescript
-  CONTACT: s.string().email()
-  ```
 - **`.regex(pattern, msg?)`**: 自定义正则校验。
   ```typescript
-  VERSION: s.string().regex(/^v\d+\.\d+\.\d+$/, "版本号必须以 v 开头")
+  VERSION: s.string().regex(/^v\d+\.\d+\.\d+$/, "格式错误")
   ```
-- **`.description(text)`**: 添加变量描述。该描述会映射到 IDE 的悬停提示中。
+- **`.description(text)`**: 添加变量描述，映射到 IDE 悬停提示中。
   ```typescript
-  PORT: s.number(3000).description("本地服务器端口")
+  PORT: s.number(3000).description("服务端口")
   ```
-- **`.secret()`**: 标记敏感数据。当校验失败时，该字段的值在报错表格中会显示为 `********`，防止密钥泄露。
+- **`.transform(fn)`**: 自定义数据转换，支持多级 Pipe。
   ```typescript
-  DB_PASSWORD: s.string().secret()
-  ```
-- **`.transform(fn)`**: 自定义数据转换，支持多级链式 Pipe。
-  ```typescript
-  // 示例 1: 拿到字符串 -> 去空格 -> 转大写
   NAME: s.string().transform(v => v.trim()).transform(v => v.toUpperCase())
-
-  // 示例 2: 将逗号分隔的数字字符串转为数字数组
-  SCORES: s.array().transform(arr => arr.map(Number))
   ```
 - **`.from(key)`**: 映射环境变量名（别名）。
   ```typescript
-  // 即使环境变量叫 VITE_SERVER_PORT，代码里也可以叫 port
   port: s.number().from('VITE_SERVER_PORT')
   ```
 - **`.min(n)` / `.max(n)`**: 限制数字取值范围。
   ```typescript
-  // 端口必须在 1024-65535 之间
   PORT: s.number().min(1024).max(65535)
   ```
-- **`.validate(fn, msg?)`**: 完全自定义的校验逻辑。
+- **`.validate(fn, msg?)`**: 完全自定义的逻辑校验。
   ```typescript
-  // 必须是特定的内部域名
-  INTERNAL_URL: s.string().validate(v => v.endsWith('.internal.com'), 'Must be an internal URL')
+  INTERNAL_URL: s.string().validate(v => v.endsWith('.internal.com'), 'Must be internal')
   ```
-
-#### 3. 加载规则 (Env Priority)
-`safe-env` 遵循标准的优先级顺序（从低到高）：
-1. `.env` (基础配置)
-2. `.env.[mode]` (环境配置，如 `.env.development`)
-3. `.env.local` (本地覆盖)
-4. `.env.[mode].local` (环境特定的本地覆盖)
 
 ---
 
 ### 🎨 错误报告
-当校验失败时，`safe-env` 会在控制台打印精美的表格，清晰展示：**Key / 错误原因 / 当前值**。
+当校验失败时，`safe-env` 会在控制台输出结构化的自适应表格，清晰展示：**Key / 错误原因 / 当前值（已脱敏）**。
 
 ---
 
