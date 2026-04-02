@@ -41,6 +41,10 @@ function createField<T, D extends string = string>(
       this.parse = (v: any) => fn(originalParse(v)) as any;
       return this as unknown as FieldDefinition<U, any>;
     },
+    secret() {
+      this.metadata = { ...this.metadata, isSecret: true };
+      return this;
+    },
     url() {
       return this.validate((v) => {
         try {

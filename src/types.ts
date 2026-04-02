@@ -16,6 +16,7 @@ export interface FieldDefinition<T = any, D extends string = string> {
     max?: number;
     options?: T[];
     description?: string;
+    isSecret?: boolean;
     validate?: {
       fn: (val: T) => boolean;
       message: string;
@@ -29,6 +30,7 @@ export interface FieldDefinition<T = any, D extends string = string> {
   min: (val: number) => FieldDefinition<T, D>;
   max: (val: number) => FieldDefinition<T, D>;
   transform: <U>(fn: (val: T) => U) => FieldDefinition<U, D>;
+  secret: () => FieldDefinition<T, D>;
   
   // 新增规则
   url: () => FieldDefinition<T, D>;
@@ -43,6 +45,7 @@ export interface EnvError {
   key: string;
   error: string;
   value: any;
+  isSecret?: boolean;
 }
 
 export type InferSchema<T> = {

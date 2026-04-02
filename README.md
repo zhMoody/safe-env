@@ -149,6 +149,10 @@ export default config;
   ```typescript
   PORT: s.number(3000).description("本地服务器端口")
   ```
+- **`.secret()`**: 标记敏感数据。当校验失败时，该字段的值在报错表格中会显示为 `********`，防止密钥泄露。
+  ```typescript
+  DB_PASSWORD: s.string().secret()
+  ```
 - **`.transform(fn)`**: 自定义数据转换，支持多级链式 Pipe。
   ```typescript
   // 示例 1: 拿到字符串 -> 去空格 -> 转大写

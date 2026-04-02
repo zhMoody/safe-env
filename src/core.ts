@@ -110,7 +110,12 @@ export function safeEnv<T extends Schema>(
 
       result[key] = parsedValue;
     } catch (err: any) {
-      errors.push({ key: lookupKey, error: err.message, value: rawValue });
+      errors.push({
+        key: lookupKey,
+        error: err.message,
+        value: rawValue,
+        isSecret: definition.metadata?.isSecret,
+      });
     }
   }
 
