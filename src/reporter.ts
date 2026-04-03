@@ -1,6 +1,6 @@
 /*
  * @Author: moody
- * @Date: 2026-04-03 16:40:00
+ * @Date: 2026-04-03 18:35:00
  * @FilePath: \safe-env\src\reporter.ts
  */
 import { EnvError } from './types.js';
@@ -16,14 +16,9 @@ const p = (s: any, n: number) => {
   return r + ' '.repeat(n - w());
 };
 
-/**
- * 格式化错误报告
- * @param useColor 是否使用 ANSI 颜色
- */
 export function formatErrorReport(errors: EnvError[], useColor = true): string {
   const total = Math.max(80, (typeof process !== 'undefined' ? process.stdout.columns : 80) || 80) - 10;
   const K = Math.floor(total * 0.3), E = Math.floor(total * 0.5);
-
   const colors = useColor ? c : { r: '', g: '', y: '', b: '', res: '', d: '', cy: '' };
 
   let output = '';
@@ -39,7 +34,6 @@ export function formatErrorReport(errors: EnvError[], useColor = true): string {
 
   output += colors.d + '─'.repeat(total + 5) + colors.res + '\n';
   output += ` ${colors.g}💡 Tip: Check your .env files or schema definitions.${colors.res}\n`;
-  
   return output;
 }
 

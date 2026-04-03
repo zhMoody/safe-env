@@ -1,8 +1,16 @@
 /*
  * @Author: moody
- * @Date: 2026-04-03 14:50:00
+ * @Date: 2026-04-03 18:15:00
  * @FilePath: \safe-env\src\types.ts
  */
+
+// 极致优化：使用平铺常量，方便打包工具内联
+export const DEV = 'development';
+export const SERVE = 'serve';
+export const BUILD = 'build';
+export const VITE_DEV_FLAG = 'VITE_DEV_SERVER';
+export const VITE_PREFIX = 'VITE_';
+
 export type BaseType = "string" | "number" | "boolean" | "enum" | "array";
 
 export interface FieldDefinition<T = any, D extends string = string> {
@@ -10,8 +18,8 @@ export interface FieldDefinition<T = any, D extends string = string> {
   default?: T;
   required: boolean;
   sourceKey?: string;
-  parse: (val: any) => T;
   metadata?: any;
+  parse: (val: any) => T;
   from: (key: string) => FieldDefinition<T, D>;
   validate: (fn: (val: T) => boolean, message?: string) => FieldDefinition<T, D>;
   min: (val: number) => FieldDefinition<T, D>;
@@ -43,6 +51,6 @@ export interface SafeEnvOptions {
   source?: Record<string, any>;
   prefix?: string;
   cwd?: string;
-  manualSource?: boolean;
-  devMode?: boolean;
+  /** @internal */ manualSource?: boolean;
+  /** @internal */ devMode?: boolean;
 }
