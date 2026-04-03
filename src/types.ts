@@ -4,12 +4,11 @@
  * @FilePath: \safe-env\src\types.ts
  */
 
-// 极致优化：使用平铺常量，方便打包工具内联
-export const DEV = 'development';
-export const SERVE = 'serve';
-export const BUILD = 'build';
-export const VITE_DEV_FLAG = 'VITE_DEV_SERVER';
-export const VITE_PREFIX = 'VITE_';
+export const DEV = "development";
+export const SERVE = "serve";
+export const BUILD = "build";
+export const VITE_DEV_FLAG = "VITE_DEV_SERVER";
+export const VITE_PREFIX = "VITE_";
 
 export type BaseType = "string" | "number" | "boolean" | "enum" | "array";
 
@@ -21,7 +20,10 @@ export interface FieldDefinition<T = any, D extends string = string> {
   metadata?: any;
   parse: (val: any) => T;
   from: (key: string) => FieldDefinition<T, D>;
-  validate: (fn: (val: T) => boolean, message?: string) => FieldDefinition<T, D>;
+  validate: (
+    fn: (val: T) => boolean,
+    message?: string,
+  ) => FieldDefinition<T, D>;
   min: (val: number) => FieldDefinition<T, D>;
   max: (val: number) => FieldDefinition<T, D>;
   transform: <U>(fn: (val: T) => U) => FieldDefinition<U, D>;
