@@ -1,47 +1,60 @@
-import { loadEnv, type Plugin } from 'vite';
-import { safeEnv } from './core.js';
-import type { Schema } from './types.js';
-
-interface ViteSafeEnvOptions {
-  /**
-   * 环境变量目录，默认为项目根目录
-   */
-  envDir?: string;
-  /**
-   * 环境变量前缀，默认是 VITE_
-   */
-  prefix?: string | string[];
-}
-
-/**
- * Vite 插件：在构建或开发启动时校验环境变量
+/*
+ * @Author: moody
+ * @Date: 2026-04-03 16:15:00
+ * @FilePath: \safe-env\src\vite.ts
  */
-export function viteSafeEnv(schema: Schema, options: ViteSafeEnvOptions = {}): Plugin {
-  return {
-    name: 'vite-plugin-safe-env',
-    configResolved(config) {
-      const { envDir = config.root, prefix = config.envPrefix || 'VITE_' } = options;
-      
-      // 1. 使用 Vite 内置的 loadEnv 加载当前模式下的所有环境变量
-      const mode = config.mode;
-      const env = loadEnv(mode, envDir, prefix);
+import { loadEnv, type Plugin } from "vite";
+import { safeEnv } from "./core.js";
+import type { Schema } from "./types.js";
 
-      // 2. 执行校验
+export function viteSafeEnv(schema: Schema, options: any = {}): Plugin {
+  let errorObject: any = null;
+  let isDev = false;
+
+  return {
+    name: "vite-plugin-safe-env",
+    configResolved(config) {
+      isDev = config.command === "serve";
+      process.env.VITE_DEV_SERVER = isDev ? "true" : "";
+
+      const { envDir = config.root, prefix = config.envPrefix || "VITE_" } =
+        options;
+      const env = loadEnv(config.mode, envDir, prefix);
+
       try {
-        // 我们传入 manualSource (env)，这样 safeEnv 就不会再去扫磁盘了
-        // 因为 Vite 已经帮我们处理好了各种 .env.local 优先级
         safeEnv(schema, {
           source: env,
-          prefix: Array.isArray(prefix) ? prefix[0] : prefix, // 传递 prefix
-          loadProcessEnv: false // 在 Vite 插件中，我们只关心 Vite 注入的变量
-        });
-        
-        // 如果没有抛错，说明校验通过
-      } catch (err) {
-        // 如果校验失败，safeEnv 内部的 reporter 已经打印了精美的表格
-        // 我们只需要确保进程异常退出即可
-        process.exit(1);
+          prefix: Array.isArray(prefix) ? prefix[0] : prefix,
+          loadProcessEnv: false,
+          throwOnError: true,
+        } as any);
+        errorObject = null;
+      } catch (err: any) {
+        errorObject = err;
+
+        // 针对构建模式的硬拦截
+        if (config.command === "build") {
+          console.error(err.message);
+          console.error(
+            "\x1b[31m[safe-env] Fatal: Environment validation failed during build. Exiting...\x1b[0m\n",
+          );
+          process.exit(1);
+        } else {
+          // 开发模式：仅打印
+          config.logger.error(err.message);
+        }
       }
-    }
+    },
+
+    transform(code, id) {
+      if (isDev && errorObject && code.includes("@zh-moody/safe-env")) {
+        const overlayError = new Error(
+          errorObject.plainMessage || errorObject.message,
+        );
+        overlayError.stack = "";
+        throw overlayError;
+      }
+      return null;
+    },
   };
 }

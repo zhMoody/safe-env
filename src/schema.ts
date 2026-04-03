@@ -1,7 +1,7 @@
 /*
  * @Author: moody
  * @Date: 2026-03-31 14:47:38
- * @LastEditTime: 2026-04-01 13:10:00
+ * @LastEditTime: 2026-04-03 13:48:00
  * @FilePath: \safe-env\src\schema.ts
  */
 import { FieldDefinition, BaseType } from "./types.js";
@@ -46,7 +46,7 @@ function createField<T, D extends string = string>(
       return this;
     },
     url() {
-      return this.validate((v) => {
+      return this.validate((v: T) => {
         try {
           new URL(String(v));
           return true;
@@ -57,10 +57,10 @@ function createField<T, D extends string = string>(
     },
     email() {
       const EMAIL_REGEX = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
-      return this.validate((v) => EMAIL_REGEX.test(String(v)), "Invalid email format");
+      return this.validate((v: T) => EMAIL_REGEX.test(String(v)), "Invalid email format");
     },
     regex(pattern: RegExp, message = "Value does not match pattern") {
-      return this.validate((v) => pattern.test(String(v)), message);
+      return this.validate((v: T) => pattern.test(String(v)), message);
     },
     description<NewD extends string>(text: NewD): FieldDefinition<T, NewD> {
       this.metadata = { ...this.metadata, description: text };
@@ -73,17 +73,17 @@ function createField<T, D extends string = string>(
 
 export const s = {
   string: (defaultValue?: string): FieldDefinition<string> =>
-    createField("string", defaultValue, (v) => String(v)),
+    createField("string", defaultValue, (v: any) => String(v)),
 
   number: (defaultValue?: number): FieldDefinition<number> =>
-    createField("number", defaultValue, (v) => {
+    createField("number", defaultValue, (v: any) => {
       const n = Number(v);
       if (isNaN(n)) throw new Error(`Invalid number: ${v}`);
       return n;
     }),
 
   boolean: (defaultValue?: boolean): FieldDefinition<boolean> =>
-    createField("boolean", defaultValue, (v) => {
+    createField("boolean", defaultValue, (v: any) => {
       if (typeof v === "boolean") return v;
       if (v === undefined || v === "") return false;
       const str = String(v).toLowerCase().trim();
@@ -99,7 +99,7 @@ export const s = {
     createField(
       "enum",
       defaultValue,
-      (v) => {
+      (v: any) => {
         if (!options.includes(v)) {
           throw new Error(`Value "${v}" is not one of: ${options.join(", ")}`);
         }
@@ -112,7 +112,7 @@ export const s = {
     defaultValue?: string[],
     separator = ",",
   ): FieldDefinition<string[]> =>
-    createField("array", defaultValue, (v) => {
+    createField("array", defaultValue, (v: any) => {
       if (Array.isArray(v)) return v;
       if (typeof v !== "string") return [];
       return v
