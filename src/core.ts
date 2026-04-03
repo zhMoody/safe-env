@@ -10,20 +10,42 @@ import {
   SafeEnvOptions,
   DEV,
   VITE_DEV_FLAG,
+  VITE_PREFIX,
 } from "./types.js";
 import { reportErrors, formatErrorReport } from "./reporter.js";
 
 const globalEnvCache: Record<string, any> = {};
 
-function createErrorProxy(): any {
-  return new Proxy({}, { get: () => undefined });
+function createErrorProxy(errors: EnvError[]): any {
+  const message = formatErrorReport(errors, false);
+  return new Proxy(
+    {},
+    {
+      get(_, prop) {
+        if (prop === "__isSafeEnvError") return true;
+        if (prop === "toJSON") return () => ({ error: "SafeEnv Validation Failed" });
+        throw new Error(`[safe-env] Cannot access "${String(prop)}" because validation failed:\n${message}`);
+      },
+      ownKeys() {
+        return [];
+      },
+      getOwnPropertyDescriptor() {
+        return undefined;
+      },
+    },
+  );
 }
 
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean } = {},
 ): Readonly<InferSchema<T>> {
-  const { loadProcessEnv = true, prefix = "", cwd, useCache = true } = options;
+  const {
+    loadProcessEnv = true,
+    prefix = VITE_PREFIX,
+    cwd,
+    useCache = true,
+  } = options;
 
   const isBrowser = typeof window !== "undefined";
   const isVite =
@@ -31,44 +53,38 @@ export function safeEnv<T extends Schema>(
     (!!process.env.VITE || !!process.env[VITE_DEV_FLAG]);
   const isProtectedEnv = isBrowser || isVite || "source" in options;
 
-  let source: Record<string, any>;
+  let source: Record<string, any> = {};
 
-  if (
-    useCache &&
-    Object.keys(globalEnvCache).length > 0 &&
-    !("source" in options)
-  ) {
-    source = globalEnvCache;
-  } else if ("source" in options) {
+  if ("source" in options) {
     source = options.source || {};
-    if (useCache && Object.keys(source).length > 0)
-      Object.assign(globalEnvCache, source);
-  } else {
-    if (typeof process !== "undefined" && !isBrowser) {
-      try {
-        const mode = options.mode || process.env.NODE_ENV || DEV;
-        const { loadDotEnv } = require("./fs-node.cjs");
-        let combinedData: Record<string, string> = {};
-        for (const f of [
-          ".env",
-          `.env.${mode}`,
-          ".env.local",
-          `.env.${mode}.local`,
-        ]) {
-          combinedData = { ...combinedData, ...loadDotEnv(f, cwd) };
-        }
-        source = { ...combinedData, ...(loadProcessEnv ? process.env : {}) };
-        if (useCache && Object.keys(source).length > 0)
-          Object.assign(globalEnvCache, source);
-      } catch (e) {
-        source = {};
+  } else if (useCache && Object.keys(globalEnvCache).length > 0) {
+    source = globalEnvCache;
+  } else if (typeof process !== "undefined" && !isBrowser) {
+    try {
+      const mode = options.mode || process.env.NODE_ENV || DEV;
+      const { loadDotEnv } = require("./fs-node.cjs");
+      let combinedData: Record<string, string> = {};
+      for (const f of [".env", `.env.${mode}`, ".env.local", `.env.${mode}.local`]) {
+        combinedData = { ...combinedData, ...loadDotEnv(f, cwd) };
       }
-    } else {
+      source = { ...combinedData, ...(loadProcessEnv ? process.env : {}) };
+    } catch (e) {
       source = {};
     }
   }
 
-  if (isProtectedEnv && Object.keys(source).length === 0) return {} as any;
+  const sourceSize = Object.keys(source).length;
+  if (useCache) {
+    if (sourceSize > 0) {
+      Object.assign(globalEnvCache, source);
+    } else if (Object.keys(globalEnvCache).length > 0) {
+      source = globalEnvCache;
+    }
+  }
+
+  if (isProtectedEnv && Object.keys(source).length === 0) {
+    return {} as any;
+  }
 
   const result = {} as any;
   const errors: EnvError[] = [];
@@ -76,6 +92,7 @@ export function safeEnv<T extends Schema>(
   for (const key in schema) {
     const d = schema[key];
     const prefixedKey = prefix && !key.startsWith(prefix) ? prefix + key : key;
+    
     const lookupKey =
       d.sourceKey ||
       (source[prefixedKey] !== undefined
@@ -83,6 +100,7 @@ export function safeEnv<T extends Schema>(
         : source[key] !== undefined
           ? key
           : prefixedKey);
+    
     const raw = source[lookupKey];
 
     try {
@@ -123,7 +141,7 @@ export function safeEnv<T extends Schema>(
     reportErrors(errors);
     if (typeof process !== "undefined" && !!process.exit && !isProtectedEnv)
       process.exit(1);
-    return createErrorProxy();
+    return createErrorProxy(errors);
   }
 
   return Object.freeze(result);

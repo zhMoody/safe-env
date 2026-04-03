@@ -26,6 +26,7 @@ export function viteSafeEnv(schema: Schema, options: any = {}): Plugin {
       // 准确加载对应模式的环境变量
       const env = loadEnv(config.mode, envDir, prefix);
 
+      // 验证是否真的缺失
       try {
         safeEnv(schema, {
           source: env,
@@ -36,6 +37,9 @@ export function viteSafeEnv(schema: Schema, options: any = {}): Plugin {
         errorObject = null;
       } catch (err: any) {
         errorObject = err;
+        // 如果校验失败且是缺失导致的，我们需要确保这些缺失的 key 在 import.meta.env 中也是 undefined
+        // 但由于 Vite 的机制，我们无法直接修改 import.meta.env
+        // 所以我们必须依赖 transform 钩子来彻底阻断！
 
         if (!isDev) {
           console.error(err.message);
@@ -51,12 +55,15 @@ export function viteSafeEnv(schema: Schema, options: any = {}): Plugin {
     },
 
     transform(code: string, id: string) {
-      if (isDev && errorObject && code.includes("@zh-moody/safe-env")) {
-        const overlayError = new Error(
-          errorObject.plainMessage || errorObject.message,
-        );
-        overlayError.stack = "";
-        throw overlayError;
+      if (isDev && errorObject) {
+        // 只要校验失败，任何尝试引用 env 的地方都直接阻断！
+        if (code.includes("import.meta.env") || code.includes("safeEnv")) {
+          const overlayError = new Error(
+            errorObject.plainMessage || errorObject.message,
+          );
+          overlayError.stack = "";
+          throw overlayError;
+        }
       }
       return null;
     },
