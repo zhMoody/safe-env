@@ -6,9 +6,9 @@
 
 [简体中文](./README.md) | English
 
-**Say goodbye to `undefined`! Intercept all configuration risks at the first line of your app.**
+**Say goodbye to `undefined`! Intercept all configuration hazards on the first line of your app.**
 
-Whether you are writing Vue, React, or Node.js, environment variables are often a source of production incidents. `safe-env` ensures your app always runs on the expected configuration through strong-typed Schema validation and runtime protection.
+Whether you're building with Vue, React, or Node.js, environment variables are often the root of production incidents. `safe-env` ensures your application always runs on top of expected configurations through strong schema validation and runtime protection.
 
 ---
 
@@ -16,14 +16,14 @@ Whether you are writing Vue, React, or Node.js, environment variables are often 
 
 ---
 
-### 🚀 Core Features
+### 🚀 Key Features
 
-- **Build-time Validation**: Provides a Vite plugin to intercept invalid configurations during development or build.
-- **Sensitive Data Masking**: Supports `.secret()` to ensure keys and passwords are masked as `********` in logs or error tables.
-- **Runtime Immutability**: Parsed config objects are deep-frozen with `Object.freeze` by default, preventing any illegal runtime modification.
-- **Monorepo Ready**: Supports `cwd` parameter to explicitly specify the `.env` directory, ideal for complex project architectures.
-- **IDE Enhancement**: Supports `.description()` to view variable usage and documentation directly via hover in your code.
-- **Rigorous Type Parsing**: Built-in `s.array()`, `s.boolean()` with enhanced conversion, and `.transform()` for chainable piping.
+- **Build-time Pre-validation**: Vite plugin intercepts invalid configurations during dev startup or build.
+- **Sensitive Data Masking**: Supports `.secret()` to ensure keys/tokens are masked in logs or error reports.
+- **Runtime Lazy Protection**: ⚡ **HPC Ready**. Powered by **Lazy Proxy**, achieving $O(1)$ startup latency and on-demand read-only protection.
+- **Monorepo Ready**: Explicitly specify `.env` search directories via `cwd`, fitting complex architectures.
+- **IDE Enhancement**: `.description()` allows you to view variable purposes/documentation via hover.
+- **Robust Parsing**: Built-in `s.array()`, `s.boolean()` with intelligent conversion and `.transform()` pipe processing.
 
 ---
 
@@ -37,9 +37,15 @@ npm install @zh-moody/safe-env
 
 ### 🚀 Quick Start
 
-#### 🔹 [Vite / React / Vue]
+Ensure you have a **`.env`** file in your project root before starting:
 
-For frontend projects, use the Vite plugin for **build-time validation**.
+```bash
+# .env example
+VITE_API_URL=https://api.example.com
+VITE_PORT=8080
+```
+
+#### 🔹 [Vite / React / Vue] Usage
 
 **1. Configure Vite Plugin (`vite.config.ts`):**
 
@@ -52,14 +58,14 @@ export default {
 };
 ```
 
-**2. Define and Export Config (`src/env.ts`):**
+**2. Define and Export Schema (`src/env.ts`):**
 
 ```typescript
 import { safeEnv, s } from "@zh-moody/safe-env";
 
 export const schema = {
-  VITE_API_URL: s.string().url().description("Backend API Base URL"),
-  VITE_PORT: s.number(3000).description("Development Server Port"),
+  VITE_API_URL: s.string().url().description("Backend API endpoint"),
+  VITE_PORT: s.number(3000).description("Server port"),
 };
 
 export const env = safeEnv(schema, {
@@ -67,33 +73,22 @@ export const env = safeEnv(schema, {
 });
 ```
 
-> **💡 Best Practice: Prevent Vite Type Pollution**
-> To completely disable the insecure original `import.meta.env.XXX` hints, modify `src/vite-env.d.ts`:
->
-> ```typescript
-> interface ImportMetaEnv {
->   [key: string]: never;
-> }
-> ```
-
 ---
 
-#### 🔸 [Node.js / Server-side]
+#### 🔸 [Node.js / Server-side] Usage
 
-In Node.js, the library automatically looks for and parses `.env` files on disk.
-
-**1. Define Config (`src/config.ts`):**
+**1. Define Configuration (`src/config.ts`):**
 
 ```typescript
 import { safeEnv, s } from "@zh-moody/safe-env";
 
 const config = safeEnv(
   {
-    DB_PASSWORD: s.string().secret().description("Database Password"),
+    DB_PASSWORD: s.string().secret().description("Database password"),
     DB_PORT: s.number(5432).min(1).max(65535),
   },
   {
-    // Explicitly specify the .env directory for Monorepo or specific deployments
+    // Explicitly specify .env root in Monorepo or deployment environments
     // cwd: '/path/to/project-root'
   },
 );
@@ -105,59 +100,47 @@ export default config;
 
 ### 🛠️ API Reference
 
-#### 1. Define Fields (`s.xxx`)
+#### 1. Global Options (`safeEnv`)
 
-- `s.string(default?)`: String field. Required if no default value.
-- `s.number(default?)`: Automatically converted to `number` and validated.
-- `s.boolean(default?)`: Supports `"true"`, `"1"`, `"yes"`, `"on"` as `true`.
-- `s.array(default?, separator?)`: Splits string by separator (default `,`) into an array.
-- `s.enum(options, default?)`: Value must be one of the provided options.
+`safeEnv(schema, options?)` accepts an optional object to control the parsing engine:
 
-#### 2. Validation & Enhancement (Chainable)
+- **`useCache (boolean)`**: Enable global memoization (default `true`). Significantly improves performance for high-frequency calls.
+- **`refreshCache (boolean)`**: Force flush and re-read disk/process variables (default `false`). Essential for HMR or switching envs in automated tests.
+- **`cwd (string)`**: Specify the search root for `.env` files (Node.js).
+- **`source (Record<string, any>)`**: Manually provide the data source (e.g., `import.meta.env`), skipping automatic file retrieval.
+- **`prefix (string)`**: Filter prefix for env variables (default `VITE_`).
 
-- **`.secret()`**: Masks the value as `********` in error reports.
-  ```typescript
-  PASSWORD: s.string().secret();
-  ```
-- **`.url()` / `.email()`**: Built-in format validation.
-  ```typescript
-  API_URL: s.string().url();
-  ```
+#### 2. Field Definitions (`s.xxx`)
+
+- **`s.string(default?)`**: 
+  - **Logic**: If no default is provided, it's marked as **Required**.
+- **`s.number(default?)`**: 
+  - **Logic**: Executes `Number(v)`. Aborts with an error if result is `NaN` (e.g., `VITE_PORT=abc`).
+- **`s.boolean(default?)`**: Intelligent Boolean parsing.
+  - **Logic**: 
+    - **`true`**: `true`, `"true"`, `"1"`, `"yes"`, `"on"`.
+    - **`false`**: `false`, `"false"`, `"0"`, `"no"`, `"off"`, or empty strings.
+- **`s.array(default?, separator?)`**: 
+  - **Logic**: Default separator is `,`. Supports custom ones like `s.array([], '|')`.
+- **`s.enum(options, default?)`**: 
+  - **Logic**: Input must be one of the `options`. Perfect for mode locking (`dev`, `prod`, `test`).
+
+#### 3. Enhancements & Validation (Chaining)
+
+- **`.secret()`**: Mask sensitive data in error reports (`********`).
+- **`.url()` / `.email()`**: Common format validation.
 - **`.regex(pattern, msg?)`**: Custom regex validation.
-  ```typescript
-  VERSION: s.string().regex(/^v\d+\.\d+\.\d+$/, "Invalid format");
-  ```
-- **`.description(text)`**: Adds a description for IDE hover hints.
-  ```typescript
-  PORT: s.number(3000).description("Server Port");
-  ```
-- **`.transform(fn)`**: Custom data transformation, supports multi-level piping.
-  ```typescript
-  NAME: s.string()
-    .transform((v) => v.trim())
-    .transform((v) => v.toUpperCase());
-  ```
-- **`.from(key)`**: Maps environment variable name (Alias).
-  ```typescript
-  port: s.number().from("VITE_SERVER_PORT");
-  ```
-- **`.min(n)` / `.max(n)`**: Constraints for number values.
-  ```typescript
-  PORT: s.number().min(1024).max(65535);
-  ```
-- **`.validate(fn, msg?)`**: Fully custom validation logic.
-  ```typescript
-  INTERNAL_URL: s.string().validate(
-    (v) => v.endsWith(".internal.com"),
-    "Must be internal",
-  );
-  ```
+- **`.description(text)`**: Hover hints for IDEs.
+- **`.transform(fn)`**: Custom data transformation (Multi-level pipe).
+- **`.from(key)`**: Alias mapping (Environment key mapping).
+- **`.min(n)` / `.max(n)`**: Number range constraints.
+- **`.validate(fn, msg?)`**: Custom logic validation.
 
 ---
 
 ### 🎨 Error Reporting
 
-When validation fails, `safe-env` outputs a structured, adaptive table in the console showing: **Key / Error Reason / Current Value (Masked)**.
+When validation fails, `safe-env` outputs an adaptive structured table showing: **Key / Error / Current Value (Masked)**.
 
 ---
 

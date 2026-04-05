@@ -37,6 +37,14 @@ npm install @zh-moody/safe-env
 
 ### 🚀 快速上手
 
+在开始之前，请确保你的项目根目录下已有相应的 **`.env`** 配置文件：
+
+```bash
+# .env 示例
+VITE_API_URL=https://api.example.com
+VITE_PORT=8080
+```
+
 #### 🔹 [Vite / React / Vue] 使用
 
 在前端，建议配合 Vite 插件实现**构建时校验**。
@@ -105,15 +113,33 @@ export default config;
 
 ### 🛠️ API 详解
 
-#### 1. 定义字段 (`s.xxx`)
+#### 1. 全局配置与选项 (`safeEnv`)
 
-- `s.string(default?)`: 字符串。若无默认值则必填。
-- `s.number(default?)`: 数字。自动转换为 `number` 类型并校验合法性。
-- `s.boolean(default?)`: 布尔型。支持将 `"true"`, `"1"`, `"yes"`, `"on"` 解析为 `true`。
-- `s.array(default?, separator?)`: 数组型。支持将字符串按分隔符（默认 `,`）拆分为数组。
-- `s.enum(options, default?)`: 枚举。值必须在预设数组中。
+`safeEnv(schema, options?)` 接收一个可选的配置对象，用于深度控制解析行为：
 
-#### 2. 校验与增强 (链式调用)
+- **`useCache (boolean)`**: 是否启用全局缓存（默认 `true`）。开启后，后续调用将优先从内存获取已解析的配置，极大提升高频调用的性能。
+- **`refreshCache (boolean)`**: 强制刷新并重新读取磁盘/进程变量（默认 `false`）。常用于开发环境下的热更新或自动化测试中切换不同的环境配置。
+- **`cwd (string)`**: 显式指定 `.env` 文件的检索根目录（Node.js 环境）。
+- **`source (Record<string, any>)`**: 手动指定数据源（如 `import.meta.env` 或 `process.env`），跳过自动文件检索。
+- **`prefix (string)`**: 过滤环境变量的前缀（默认 `VITE_`）。
+
+#### 2. 定义字段 (`s.xxx`)
+
+- **`s.string(default?)`**: 字符串解析。
+  - **逻辑**: 如果不提供默认值，该字段将被标记为 **必填 (Required)**，若 `.env` 中缺失会触发报错。
+- **`s.number(default?)`**: 数字解析。
+  - **逻辑**: 自动执行 `Number(v)`。若转换结果为 `NaN`（如 `VITE_PORT=abc`），解析会立即中止并报错。
+- **`s.boolean(default?)`**: 增强布尔解析。
+  - **逻辑**: 支持多种真假语义的自动转换：
+    - **`true`**: `true`, `"true"`, `"1"`, `"yes"`, `"on"`。
+    - **`false`**: `false`, `"false"`, `"0"`, `"no"`, `"off"`, 以及空字符串。
+- **`s.array(default?, separator?)`**: 数组解析。
+  - **逻辑**: 默认使用 `,` 作为分隔符。支持自定义，如 `s.array([], '|')`。
+  - **示例**: `VITE_MODS=auth,cache` ➡️ `['auth', 'cache']`。
+- **`s.enum(options, default?)`**: 枚举约束。
+  - **逻辑**: 强制输入值必须在 `options` 数组中，否则报错。非常适用于多环境（`dev`, `prod`, `test`）的模式锁定。
+
+#### 3. 校验与增强 (链式调用)
 
 每个字段都可以通过链式调用进行深度定制：
 

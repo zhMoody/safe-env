@@ -73,7 +73,7 @@ export function createReadOnlyProxy<T extends object>(target: T): T {
 
 export function safeEnv<T extends Schema>(
   schema: T,
-  options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean } = {},
+  options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean; envLoader?: (f: string, cwd?: string) => Record<string, string> } = {},
 ): Readonly<InferSchema<T>> {
   const {
     loadProcessEnv = true,
@@ -81,6 +81,7 @@ export function safeEnv<T extends Schema>(
     cwd,
     useCache = true,
     refreshCache = false,
+    envLoader,
   } = options;
 
   if (refreshCache) {
@@ -102,11 +103,15 @@ export function safeEnv<T extends Schema>(
   } else if (typeof process !== "undefined" && !isBrowser) {
     try {
       const mode = options.mode || process.env.NODE_ENV || DEV;
-      const { loadDotEnv } = require("./fs-node.cjs");
       let combinedData: Record<string, string> = {};
-      for (const f of [".env", `.env.${mode}`, ".env.local", `.env.${mode}.local`]) {
-        combinedData = { ...combinedData, ...loadDotEnv(f, cwd) };
+      
+      // 使用注入的加载器或默认不加载
+      if (envLoader) {
+        for (const f of [".env", `.env.${mode}`, ".env.local", `.env.${mode}.local`]) {
+          combinedData = { ...combinedData, ...envLoader(f, cwd) };
+        }
       }
+      
       source = { ...combinedData, ...(loadProcessEnv ? process.env : {}) };
     } catch (e) {
       source = {};

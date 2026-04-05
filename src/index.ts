@@ -5,9 +5,24 @@
  * @FilePath: \safe-env\src\index.ts
  */
 
+import { safeEnv as coreSafeEnv } from "./core.js";
+import { loadDotEnv } from "./fs-node.js";
+import { Schema, InferSchema, SafeEnvOptions } from "./types.js";
+
 // 这些是运行时必须的
-export { safeEnv } from "./core.js";
+export function safeEnv<T extends Schema>(
+  schema: T,
+  options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean } = {},
+): Readonly<InferSchema<T>> {
+  const isNode = typeof process !== "undefined" && (process.release?.name === "node" || !!process.versions?.node);
+  return coreSafeEnv(schema, { 
+    ...options, 
+    envLoader: isNode ? loadDotEnv : undefined 
+  });
+}
+
 export { s } from "./schema.js";
+
 
 // 类型定义：编译时使用，不占体积
 export * from "./types.js";
