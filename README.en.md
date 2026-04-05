@@ -12,6 +12,10 @@ Whether you are writing Vue, React, or Node.js, environment variables are often 
 
 ---
 
+![](./assets/demo.gif)
+
+---
+
 ### 🚀 Core Features
 
 - **Build-time Validation**: Provides a Vite plugin to intercept invalid configurations during development or build.
