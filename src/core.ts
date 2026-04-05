@@ -36,6 +36,17 @@ function createErrorProxy(errors: EnvError[]): any {
   );
 }
 
+function deepFreeze<T extends object>(obj: T): T {
+  const propNames = Object.getOwnPropertyNames(obj);
+  for (const name of propNames) {
+    const value = (obj as any)[name];
+    if (value && typeof value === "object" && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return Object.freeze(obj);
+}
+
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean } = {},
@@ -45,7 +56,12 @@ export function safeEnv<T extends Schema>(
     prefix = VITE_PREFIX,
     cwd,
     useCache = true,
+    refreshCache = false,
   } = options;
+
+  if (refreshCache) {
+    for (const key in globalEnvCache) delete globalEnvCache[key];
+  }
 
   const isBrowser = typeof window !== "undefined";
   const isVite =
@@ -57,7 +73,7 @@ export function safeEnv<T extends Schema>(
 
   if ("source" in options) {
     source = options.source || {};
-  } else if (useCache && Object.keys(globalEnvCache).length > 0) {
+  } else if (useCache && !refreshCache && Object.keys(globalEnvCache).length > 0) {
     source = globalEnvCache;
   } else if (typeof process !== "undefined" && !isBrowser) {
     try {
@@ -144,5 +160,5 @@ export function safeEnv<T extends Schema>(
     return createErrorProxy(errors);
   }
 
-  return Object.freeze(result);
+  return deepFreeze(result);
 }

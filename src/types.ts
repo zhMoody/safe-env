@@ -53,6 +53,8 @@ export interface SafeEnvOptions {
   source?: Record<string, any>;
   prefix?: string;
   cwd?: string;
+  /** 是否强制刷新缓存，重新从磁盘或进程读取 */
+  refreshCache?: boolean;
   /** @internal */ manualSource?: boolean;
   /** @internal */ devMode?: boolean;
 }
