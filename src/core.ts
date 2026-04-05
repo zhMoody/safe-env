@@ -113,12 +113,14 @@ export function safeEnv<T extends Schema>(
     }
   }
 
-  if (useCache && Object.keys(source).length > 0 && Object.keys(globalEnvCache).length === 0) {
+  if (useCache && !refreshCache && Object.keys(globalEnvCache).length > 0) {
+    if (Object.keys(source).length === 0) {
+      source = globalEnvCache;
+    } else {
+      Object.assign(globalEnvCache, source);
+    }
+  } else if (useCache && Object.keys(source).length > 0) {
     Object.assign(globalEnvCache, source);
-  }
-
-  if (isProtectedEnv && Object.keys(source).length === 0) {
-    return {} as any;
   }
 
   const result = {} as any;
