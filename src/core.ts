@@ -15,6 +15,7 @@ import {
 import { reportErrors, formatErrorReport } from "./reporter.js";
 
 const globalEnvCache: Record<string, any> = {};
+const proxyCache = new WeakMap<object, any>();
 
 function createErrorProxy(errors: EnvError[]): any {
   const message = formatErrorReport(errors, false);
@@ -36,15 +37,38 @@ function createErrorProxy(errors: EnvError[]): any {
   );
 }
 
-function deepFreeze<T extends object>(obj: T): T {
-  const propNames = Object.getOwnPropertyNames(obj);
-  for (const name of propNames) {
-    const value = (obj as any)[name];
-    if (value && typeof value === "object" && !Object.isFrozen(value)) {
-      deepFreeze(value);
-    }
+const ERR_READ_ONLY = "[safe-env] Cannot modify read-only environment variables.";
+
+export function createReadOnlyProxy<T extends object>(target: T): T {
+  if (proxyCache.has(target)) {
+    return proxyCache.get(target);
   }
-  return Object.freeze(obj);
+
+  const proxy = new Proxy(target, {
+    get(obj, prop) {
+      if (prop === "__isSafeEnv") return true;
+      const val = Reflect.get(obj, prop);
+      if (val !== null && typeof val === "object" && !Object.isFrozen(val)) {
+        return createReadOnlyProxy(val);
+      }
+      return val;
+    },
+    set() {
+      throw new Error(ERR_READ_ONLY);
+    },
+    deleteProperty() {
+      throw new Error(ERR_READ_ONLY);
+    },
+    defineProperty() {
+      throw new Error(ERR_READ_ONLY);
+    },
+    setPrototypeOf() {
+      throw new Error(ERR_READ_ONLY);
+    },
+  });
+
+  proxyCache.set(target, proxy);
+  return proxy;
 }
 
 export function safeEnv<T extends Schema>(
@@ -89,13 +113,8 @@ export function safeEnv<T extends Schema>(
     }
   }
 
-  const sourceSize = Object.keys(source).length;
-  if (useCache) {
-    if (sourceSize > 0) {
-      Object.assign(globalEnvCache, source);
-    } else if (Object.keys(globalEnvCache).length > 0) {
-      source = globalEnvCache;
-    }
+  if (useCache && Object.keys(source).length > 0 && Object.keys(globalEnvCache).length === 0) {
+    Object.assign(globalEnvCache, source);
   }
 
   if (isProtectedEnv && Object.keys(source).length === 0) {
@@ -160,5 +179,5 @@ export function safeEnv<T extends Schema>(
     return createErrorProxy(errors);
   }
 
-  return deepFreeze(result);
+  return createReadOnlyProxy(result);
 }
