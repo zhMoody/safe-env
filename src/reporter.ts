@@ -8,9 +8,6 @@ import { EnvError } from "./types.js";
 const isBrowser =
   typeof window !== "undefined" && typeof window.document !== "undefined";
 
-/**
- * 格式化终端报错表格 (仅 Node 端/开发端使用)
- */
 export function formatErrorReport(errors: EnvError[], useColor = true): string {
   if (isBrowser) {
     return `SafeEnv Validation Failed: ${errors.map((e) => `${e.key} (${e.error})`).join(", ")}`;
@@ -25,7 +22,6 @@ export function formatErrorReport(errors: EnvError[], useColor = true): string {
     d: "\x1b[2m",
     cy: "\x1b[36m",
   };
-
   const p = (s: any, n: number) => {
     let r = String(s);
     const w = () => r.length + (r.match(/[^\x00-\xff]/g) || []).length;
@@ -33,7 +29,11 @@ export function formatErrorReport(errors: EnvError[], useColor = true): string {
     return r + " ".repeat(n - w());
   };
 
-  const total = 80;
+  const total =
+    Math.max(
+      80,
+      (typeof process !== "undefined" ? process.stdout.columns : 80) || 80,
+    ) - 10;
   const K = Math.floor(total * 0.3),
     E = Math.floor(total * 0.5);
   const colors = useColor
@@ -61,6 +61,10 @@ export function formatErrorReport(errors: EnvError[], useColor = true): string {
 
 export function reportErrors(errors: EnvError[]) {
   if (isBrowser) {
+    console.group(
+      "%c ❌ SafeEnv Validation Failed ",
+      "background: #fee2e2; color: #b91c1c; font-weight: bold; padding: 4px; border-radius: 2px;",
+    );
     const tableData = errors.reduce((acc, e) => {
       acc[e.key] = {
         "Error Message": e.error,
@@ -74,6 +78,11 @@ export function reportErrors(errors: EnvError[]) {
       return acc;
     }, {} as any);
     console.table(tableData);
+    console.log(
+      "%c 💡 Tip: Check your .env files or schema definitions. ",
+      "color: #059669; font-style: italic;",
+    );
+    console.groupEnd();
   } else {
     console.error(formatErrorReport(errors, true));
   }
