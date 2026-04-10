@@ -11,6 +11,7 @@ import {
   DEV,
   VITE_DEV_FLAG,
   VITE_PREFIX,
+  ValidationContext,
 } from "./types.js";
 import { reportErrors, formatErrorReport } from "./reporter.js";
 
@@ -96,8 +97,15 @@ export function safeEnv<T extends Schema>(
 
   let source: Record<string, any> = {};
 
+  let isPrematureLoad = false;
+
   if ("source" in options) {
-    source = options.source || {};
+    if (options.source === undefined) {
+      isPrematureLoad = true;
+      source = {};
+    } else {
+      source = options.source;
+    }
   } else if (useCache && !refreshCache && Object.keys(globalEnvCache).length > 0) {
     source = globalEnvCache;
   } else if (typeof process !== "undefined" && !isBrowser) {
@@ -145,22 +153,24 @@ export function safeEnv<T extends Schema>(
     
     const raw = source[lookupKey];
 
+    const ctx: ValidationContext = { source, parsed: result };
+
     try {
+      const isReq = typeof d.required === "function" ? d.required(ctx) : d.required;
       if (raw === undefined || (raw === "" && d.default !== undefined)) {
-        if (d.required && raw === undefined)
+        if (isReq && raw === undefined)
           throw new Error("Missing required field");
         result[key] = d.default;
       } else {
-        const val = d.parse(raw);
+        const val = d.parse(raw, ctx);
         if (val !== undefined && d.metadata) {
-          const { min, max, validate } = d.metadata;
+          const { min, max } = d.metadata;
           if (typeof val === "number") {
             if (min !== undefined && val < min)
               throw new Error(`Below min ${min}`);
             if (max !== undefined && val > max)
               throw new Error(`Above max ${max}`);
           }
-          if (validate && !validate.fn(val)) throw new Error(validate.message);
         }
         result[key] = val;
       }
@@ -180,7 +190,10 @@ export function safeEnv<T extends Schema>(
       (err as any).plainMessage = formatErrorReport(errors, false);
       throw err;
     }
-    reportErrors(errors);
+    // 静默屏蔽 Vite 配置文件早产环境的幽灵打印
+    if (!isPrematureLoad) {
+      reportErrors(errors);
+    }
     if (typeof process !== "undefined" && !!process.exit && !isProtectedEnv)
       process.exit(1);
     return createErrorProxy(errors);

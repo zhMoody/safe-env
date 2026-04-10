@@ -61,10 +61,10 @@ export default {
 **2. Define and Export Schema (`src/env.ts`):**
 
 ```typescript
-import { safeEnv, s } from "@zh-moody/safe-env";
+import { safeEnv, s, isUrl } from "@zh-moody/safe-env";
 
 export const schema = {
-  VITE_API_URL: s.string().url().description("Backend API endpoint"),
+  VITE_API_URL: s.string().validate(isUrl, "Invalid URL").description("Backend API endpoint"),
   VITE_PORT: s.number(3000).description("Server port"),
 };
 
@@ -128,13 +128,66 @@ export default config;
 #### 3. Enhancements & Validation (Chaining)
 
 - **`.secret()`**: Mask sensitive data in error reports (`********`).
-- **`.url()` / `.email()`**: Common format validation.
-- **`.regex(pattern, msg?)`**: Custom regex validation.
+  ```typescript
+  PASSWORD: s.string().secret();
+  ```
 - **`.description(text)`**: Hover hints for IDEs.
+  ```typescript
+  PORT: s.number(3000).description("Server port");
+  ```
+- **`.optional()`**: Explicitly declare this field as optional. Missing values drop back to `undefined` instead of throwing an error.
+  ```typescript
+  TRACKING_ID: s.string().optional();
+  ```
+- **`.requiredIf(fn)`**: Context-Aware validation. Dynamically determine if the field is required based on values parsed so far.
+  ```typescript
+  // ICP_NUMBER is required ONLY if parsed REGION equals 'CN'
+  ICP_NUMBER: s.string().requiredIf((ctx) => ctx.parsed.REGION === 'CN');
+  ```
 - **`.transform(fn)`**: Custom data transformation (Multi-level pipe).
+  ```typescript
+  NAME: s.string()
+    .transform((v) => v.trim())
+    .transform((v) => v.toUpperCase());
+  ```
 - **`.from(key)`**: Alias mapping (Environment key mapping).
+  ```typescript
+  port: s.number().from("VITE_SERVER_PORT");
+  ```
 - **`.min(n)` / `.max(n)`**: Number range constraints.
-- **`.validate(fn, msg?)`**: Custom logic validation.
+  ```typescript
+  PORT: s.number().min(1024).max(65535);
+  ```
+- **`.validate(fn, msg?)`**: Custom logic validation. Supports context passing and native pure-function integration (See "Built-in Validation Rules").
+  ```typescript
+  INTERNAL_URL: s.string().validate(
+    (v, ctx) => v.endsWith(".internal.com"),
+    "Must be internal",
+  );
+  ```
+
+#### 4. Built-in Validation Rules
+
+To support an infinite amount of business validation logic without blowing up bundle sizes, all heavy string validators (like Regex) and transformers are separated from the core class. They are instead provided as **pure, perfectly tree-shakable higher-order functions** that can be imported directly.
+
+Seamlessly integrate them using native `validate`/`transform` methods:
+
+```typescript
+import { safeEnv, s, isUrl, isIPv4, isUUID, isJSON, toJSON, trim } from "@zh-moody/safe-env";
+
+const schema = {
+  // Dirty data processing: Trim whitespaces, then validate IPv4
+  HOST: s.string().transform(trim).validate(isIPv4, "Must be valid IPv4"),
+  // Serialization mapping natively
+  PAYLOAD: s.string().validate(isJSON).transform(toJSON),
+  // Common URL link checking
+  API_URL: s.string().validate(isUrl, "Must be a valid URL")
+};
+```
+
+Currently, `@zh-moody/safe-env` exports the following utility functions out-of-the-box:
+- **Validators**: `isUrl`, `isEmail`, `isIPv4`, `isUUID`, `isBase64`, `isJSON`, `isHexColor`, `isObjectId`, `matchesRegex(pattern)`
+- **Transformers**: `trim`, `toLowerCase`, `toUpperCase`, `toJSON`
 
 ---
 

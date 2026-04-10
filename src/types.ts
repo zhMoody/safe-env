@@ -12,25 +12,29 @@ export const VITE_PREFIX = "VITE_";
 
 export type BaseType = "string" | "number" | "boolean" | "enum" | "array";
 
+export interface ValidationContext {
+  source: Record<string, any>;
+  parsed: Record<string, any>;
+}
+
 export interface FieldDefinition<T = any, D extends string = string> {
   type: BaseType;
   default?: T;
-  required: boolean;
+  required: boolean | ((ctx: ValidationContext) => boolean);
   sourceKey?: string;
   metadata?: any;
-  parse: (val: any) => T;
+  parse: (val: any, ctx: ValidationContext) => T;
   from: (key: string) => FieldDefinition<T, D>;
+  optional: () => FieldDefinition<T | undefined, D>;
+  requiredIf: (fn: (ctx: ValidationContext) => boolean) => FieldDefinition<T, D>;
   validate: (
-    fn: (val: T) => boolean,
+    fn: (val: T, ctx: ValidationContext) => boolean,
     message?: string,
   ) => FieldDefinition<T, D>;
   min: (val: number) => FieldDefinition<T, D>;
   max: (val: number) => FieldDefinition<T, D>;
-  transform: <U>(fn: (val: T) => U) => FieldDefinition<U, D>;
+  transform: <U>(fn: (val: T, ctx: ValidationContext) => U) => FieldDefinition<U, D>;
   secret: () => FieldDefinition<T, D>;
-  url: () => FieldDefinition<T, D>;
-  email: () => FieldDefinition<T, D>;
-  regex: (pattern: RegExp, message?: string) => FieldDefinition<T, D>;
   description: <NewD extends string>(text: NewD) => FieldDefinition<T, NewD>;
 }
 

@@ -22,7 +22,7 @@ export function safeEnv<T extends Schema>(
 }
 
 export { s } from "./schema.js";
-
+export * from "./rules.js";
 
 // 类型定义：编译时使用，不占体积
 export * from "./types.js";

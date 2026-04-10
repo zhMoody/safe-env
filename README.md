@@ -147,13 +147,14 @@ export default config;
   ```typescript
   PASSWORD: s.string().secret();
   ```
-- **`.url()` / `.email()`**: 常用格式校验。
+- **`.optional()`**: 显式声明该字段为非必填。解析如果不存在，则返回 `undefined` 而不报错。
   ```typescript
-  API_URL: s.string().url();
+  TRACKING_ID: s.string().optional();
   ```
-- **`.regex(pattern, msg?)`**: 自定义正则校验。
+- **`.requiredIf(fn)`**: 联动校验（Context-Aware）。依据当前已解析的其他配置动态决定该字段是否必填。
   ```typescript
-  VERSION: s.string().regex(/^v\d+\.\d+\.\d+$/, "格式错误");
+  // 只有当 REGION 明确被设为 CN 时，ICP 备案号才是必填的
+  ICP_NUMBER: s.string().requiredIf((ctx) => ctx.parsed.REGION === 'CN');
   ```
 - **`.description(text)`**: 添加变量描述，映射到 IDE 悬停提示中。
   ```typescript
@@ -173,13 +174,35 @@ export default config;
   ```typescript
   PORT: s.number().min(1024).max(65535);
   ```
-- **`.validate(fn, msg?)`**: 完全自定义的逻辑校验。
+- **`.validate(fn, msg?)`**: 传入纯函数进行校验。支持上下文透传以及库内置高阶纯函数的直接切入（详情见下文 "内置验证库"）。
   ```typescript
   INTERNAL_URL: s.string().validate(
-    (v) => v.endsWith(".internal.com"),
+    (v, ctx) => v.endsWith(".internal.com"),
     "Must be internal",
   );
   ```
+
+#### 4. 极致瘦身的内置验证库 (Tree-shakable Rules)
+
+为了支持无限的业务规则而不造成构建体积膨胀，所有重型字符串校验（长正则）和转换规则均剔除出了核心类，化作了**支持完美 Tree-Shaking 的扁平化导出的高阶函数**。只有你明确通过 `import` 引用的微小单点代码才会被真正打包！
+
+使用原生 `validate`/`transform` 方法无隙集成它们：
+```typescript
+import { safeEnv, s, isUrl, isIPv4, isUUID, isJSON, toJSON, trim } from "@zh-moody/safe-env";
+
+const schema = {
+  // 脏数据清理：先裁剪首尾空格、后校验 IPv4 格式
+  HOST: s.string().transform(trim).validate(isIPv4, "必需是合法 IPv4"),
+  // 支持链式序列化
+  PAYLOAD: s.string().validate(isJSON).transform(toJSON),
+  // 甚至只是普通的链接和格式判定
+  API_URL: s.string().validate(isUrl, "必须抛出无效链接")
+};
+```
+
+目前的 `@zh-moody/safe-env` 原生伴随导出了以下优质清洗函数组合，按需使用即可：
+- **Validators (验证器)**: `isUrl`, `isEmail`, `isIPv4`, `isUUID`, `isBase64`, `isJSON`, `isHexColor`, `isObjectId`, `matchesRegex(pattern)`
+- **Transformers (转换器)**: `trim`, `toLowerCase`, `toUpperCase`, `toJSON`
 
 ---
 

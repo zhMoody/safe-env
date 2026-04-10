@@ -3,53 +3,91 @@
  * @Date: 2026-04-03 18:30:00
  * @FilePath: \safe-env\src\schema.ts
  */
-import { FieldDefinition, BaseType } from "./types.js";
+import { FieldDefinition, BaseType, ValidationContext } from "./types.js";
 
-function createField<T, D extends string = string>(
-  type: BaseType,
-  defaultValue: T | undefined,
-  parse: (v: any) => T,
-  options: any[] = [],
-): FieldDefinition<T, D> {
-  const def: FieldDefinition<T, any> = {
-    type,
-    default: defaultValue,
-    required: defaultValue === undefined,
-    parse,
-    metadata: options.length ? { options } : {},
+class FieldDef<T, D extends string = string> implements FieldDefinition<T, D> {
+  type: BaseType;
+  default?: T;
+  required: boolean | ((ctx: ValidationContext) => boolean);
+  sourceKey?: string;
+  metadata: any;
+  parse: (val: any, ctx: ValidationContext) => T;
 
-    from(key: string) { this.sourceKey = key; return this; },
-    validate(fn: (val: T) => boolean, message = "Custom validation failed") {
-      this.metadata = { ...this.metadata, validate: { fn, message } };
-      return this;
-    },
-    min(val: number) { this.metadata = { ...this.metadata, min: val }; return this; },
-    max(val: number) { this.metadata = { ...this.metadata, max: val }; return this; },
-    transform<U>(fn: (val: T) => U): FieldDefinition<U, any> {
-      const op = this.parse;
-      this.parse = (v: any) => fn(op(v)) as any;
-      return this as unknown as FieldDefinition<U, any>;
-    },
-    secret() { this.metadata = { ...this.metadata, isSecret: true }; return this; },
-    url() { return this.validate((v: T) => { try { new URL(String(v)); return true; } catch (e) { return false; } }, "Invalid URL format"); },
-    email() { return this.validate((v: T) => /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(String(v)), "Invalid email format"); },
-    regex(pattern: RegExp, message = "Value does not match pattern") { return this.validate((v: T) => pattern.test(String(v)), message); },
-    description<NewD extends string>(text: NewD): FieldDefinition<T, NewD> {
-      this.metadata = { ...this.metadata, description: text };
-      return this as unknown as FieldDefinition<T, NewD>;
-    },
-  };
-  return def as FieldDefinition<T, D>;
+  constructor(
+    type: BaseType,
+    defaultValue: T | undefined,
+    parse: (v: any, ctx: ValidationContext) => T,
+    options: any[] = []
+  ) {
+    this.type = type;
+    this.default = defaultValue;
+    this.required = defaultValue === undefined;
+    this.parse = parse;
+    this.metadata = options.length ? { options } : {};
+  }
+
+  from(key: string) {
+    this.sourceKey = key;
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+  optional() {
+    this.required = false;
+    return this as unknown as FieldDefinition<T | undefined, D>;
+  }
+
+  requiredIf(fn: (ctx: ValidationContext) => boolean) {
+    this.required = fn;
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+  validate(fn: (val: T, ctx: ValidationContext) => boolean, message = "Custom validation failed") {
+    const op = this.parse;
+    this.parse = (v: any, ctx: ValidationContext) => {
+      const val = op(v, ctx);
+      if (!fn(val, ctx)) throw new Error(message);
+      return val;
+    };
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+  min(val: number) {
+    this.metadata = { ...this.metadata, min: val };
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+  max(val: number) {
+    this.metadata = { ...this.metadata, max: val };
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+  transform<U>(fn: (val: T, ctx: ValidationContext) => U) {
+    const op = this.parse;
+    this.parse = (v: any, ctx: ValidationContext) => fn(op(v, ctx), ctx) as any;
+    return this as unknown as FieldDefinition<U, D>;
+  }
+
+  secret() {
+    this.metadata = { ...this.metadata, isSecret: true };
+    return this as unknown as FieldDefinition<T, D>;
+  }
+
+
+
+  description<NewD extends string>(text: NewD) {
+    this.metadata = { ...this.metadata, description: text };
+    return this as unknown as FieldDefinition<T, NewD>;
+  }
 }
 
 export const s = {
-  string: (d?: string): FieldDefinition<string> => createField("string", d, (v: any) => String(v)),
-  number: (d?: number): FieldDefinition<number> => createField("number", d, (v: any) => {
+  string: (d?: string): FieldDefinition<string> => new FieldDef("string", d, (v: any) => String(v)),
+  number: (d?: number): FieldDefinition<number> => new FieldDef("number", d, (v: any) => {
     const n = Number(v);
     if (isNaN(n)) throw new Error(`Invalid number: ${v}`);
     return n;
   }),
-  boolean: (d?: boolean): FieldDefinition<boolean> => createField("boolean", d, (v: any) => {
+  boolean: (d?: boolean): FieldDefinition<boolean> => new FieldDef("boolean", d, (v: any) => {
     if (typeof v === "boolean") return v;
     if (v === undefined || v === "") return false;
     const s = String(v).toLowerCase().trim();
@@ -57,11 +95,11 @@ export const s = {
     if (["false", "0", "no", "off"].includes(s)) return false;
     throw new Error(`Invalid boolean: ${v}`);
   }),
-  enum: <T extends string>(o: T[], d?: T): FieldDefinition<T> => createField("enum", d, (v: any) => {
+  enum: <T extends string>(o: T[], d?: T): FieldDefinition<T> => new FieldDef("enum", d, (v: any) => {
     if (!o.includes(v)) throw new Error(`Value "${v}" is not one of: ${o.join(", ")}`);
     return v as T;
   }, o),
-  array: (d?: string[], sep = ","): FieldDefinition<string[]> => createField("array", d, (v: any) => {
+  array: (d?: string[], sep = ","): FieldDefinition<string[]> => new FieldDef("array", d, (v: any) => {
     if (Array.isArray(v)) return v;
     if (typeof v !== "string") return [];
     return v.split(sep).map((i) => i.trim()).filter(Boolean);
