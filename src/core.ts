@@ -27,8 +27,11 @@ function createErrorProxy(errors: EnvError[]): any {
     {
       get(_, prop) {
         if (prop === "__isSafeEnvError") return true;
-        if (prop === "toJSON") return () => ({ error: "SafeEnv Validation Failed" });
-        throw new Error(`[safe-env] Cannot access "${String(prop)}" because validation failed:\n${message}`);
+        if (prop === "toJSON")
+          return () => ({ error: "SafeEnv Validation Failed" });
+        throw new Error(
+          `[safe-env] Cannot access "${String(prop)}" because validation failed:\n${message}`,
+        );
       },
       ownKeys() {
         return [];
@@ -40,7 +43,8 @@ function createErrorProxy(errors: EnvError[]): any {
   );
 }
 
-const ERR_READ_ONLY = "[safe-env] Cannot modify read-only environment variables.";
+const ERR_READ_ONLY =
+  "[safe-env] Cannot modify read-only environment variables.";
 
 export function createReadOnlyProxy<T extends object>(target: T): T {
   if (proxyCache.has(target)) {
@@ -93,7 +97,11 @@ function resolveKey(
 
 export function safeEnv<T extends Schema>(
   schema: T,
-  options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean; envLoader?: (f: string, cwd?: string) => Record<string, string> } = {},
+  options: SafeEnvOptions & {
+    throwOnError?: boolean;
+    useCache?: boolean;
+    envLoader?: (f: string, cwd?: string) => Record<string, string>;
+  } = {},
 ): Readonly<InferSchema<T>> {
   const {
     loadProcessEnv = true,
@@ -104,7 +112,10 @@ export function safeEnv<T extends Schema>(
     envLoader,
   } = options;
 
-  const mode = options.mode || (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) || DEV;
+  const mode =
+    options.mode ||
+    (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ||
+    DEV;
 
   // 缓存分区 key，隔离不同 prefix/cwd/mode 的调用
   const cacheKey = `${prefix}|${cwd ?? ""}|${mode}`;
@@ -130,14 +141,24 @@ export function safeEnv<T extends Schema>(
     } else {
       source = options.source;
     }
-  } else if (useCache && !refreshCache && globalEnvCache[cacheKey] && Object.keys(globalEnvCache[cacheKey]).length > 0) {
+  } else if (
+    useCache &&
+    !refreshCache &&
+    globalEnvCache[cacheKey] &&
+    Object.keys(globalEnvCache[cacheKey]).length > 0
+  ) {
     source = globalEnvCache[cacheKey];
   } else if (typeof process !== "undefined" && !isBrowser) {
     try {
       let combinedData: Record<string, string> = {};
 
       if (envLoader) {
-        for (const f of [".env", `.env.${mode}`, ".env.local", `.env.${mode}.local`]) {
+        for (const f of [
+          ".env",
+          `.env.${mode}`,
+          ".env.local",
+          `.env.${mode}.local`,
+        ]) {
           combinedData = { ...combinedData, ...envLoader(f, cwd) };
         }
       }
@@ -149,7 +170,7 @@ export function safeEnv<T extends Schema>(
   }
 
   // 写入缓存（仅在有数据且未使用 source 选项时）
-  if (useCache && !("source" in options) && Object.keys(source).length > 0) {
+  if (useCache && Object.keys(source).length > 0) {
     if (!globalEnvCache[cacheKey]) globalEnvCache[cacheKey] = {};
     Object.assign(globalEnvCache[cacheKey], source);
   }
@@ -165,7 +186,8 @@ export function safeEnv<T extends Schema>(
     const ctx: ValidationContext = { source, parsed: result };
 
     try {
-      const isReq = typeof d.required === "function" ? d.required(ctx) : d.required;
+      const isReq =
+        typeof d.required === "function" ? d.required(ctx) : d.required;
       if (raw === undefined || (raw === "" && d.default !== undefined)) {
         if (isReq && raw === undefined)
           throw new Error("Missing required field");
