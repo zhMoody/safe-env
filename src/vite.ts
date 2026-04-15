@@ -55,15 +55,19 @@ export function viteSafeEnv(schema: Schema, options: any = {}): Plugin {
     },
 
     transform(code: string, id: string) {
-      if (isDev && errorObject) {
-        // 只要校验失败，任何尝试引用 env 的地方都直接阻断！
-        if (code.includes("import.meta.env") || code.includes("safeEnv")) {
-          const overlayError = new Error(
-            errorObject.plainMessage || errorObject.message,
-          );
-          overlayError.stack = "";
-          throw overlayError;
-        }
+      if (!isDev || !errorObject) return null;
+      // 跳过类型声明文件和依赖
+      if (id.includes("node_modules") || id.endsWith(".d.ts")) return null;
+      // 去除注释后再检测，避免注释中的字符串误触发
+      const stripped = code
+        .replace(/\/\/[^\n]*/g, "")
+        .replace(/\/\*[\s\S]*?\*\//g, "");
+      if (stripped.includes("import.meta.env") || stripped.includes("safeEnv")) {
+        const overlayError = new Error(
+          errorObject.plainMessage || errorObject.message,
+        );
+        overlayError.stack = "";
+        throw overlayError;
       }
       return null;
     },

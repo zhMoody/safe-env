@@ -3,21 +3,21 @@
  * @Date: 2026-04-03 18:30:00
  * @FilePath: \safe-env\src\schema.ts
  */
-import { FieldDefinition, BaseType, ValidationContext } from "./types.js";
+import type { FieldDefinition, FieldMetadata, BaseType, ValidationContext } from "./types.js";
 
 class FieldDef<T, D extends string = string> implements FieldDefinition<T, D> {
   type: BaseType;
   default?: T;
   required: boolean | ((ctx: ValidationContext) => boolean);
   sourceKey?: string;
-  metadata: any;
+  metadata: FieldMetadata;
   parse: (val: any, ctx: ValidationContext) => T;
 
   constructor(
     type: BaseType,
     defaultValue: T | undefined,
     parse: (v: any, ctx: ValidationContext) => T,
-    options: any[] = []
+    options: string[] = []
   ) {
     this.type = type;
     this.default = defaultValue;
@@ -52,11 +52,23 @@ class FieldDef<T, D extends string = string> implements FieldDefinition<T, D> {
   }
 
   min(val: number) {
+    const op = this.parse;
+    this.parse = (v: any, ctx: ValidationContext) => {
+      const n = op(v, ctx);
+      if (typeof n === "number" && n < val) throw new Error(`Below min ${val}`);
+      return n;
+    };
     this.metadata = { ...this.metadata, min: val };
     return this as unknown as FieldDefinition<T, D>;
   }
 
   max(val: number) {
+    const op = this.parse;
+    this.parse = (v: any, ctx: ValidationContext) => {
+      const n = op(v, ctx);
+      if (typeof n === "number" && n > val) throw new Error(`Above max ${val}`);
+      return n;
+    };
     this.metadata = { ...this.metadata, max: val };
     return this as unknown as FieldDefinition<T, D>;
   }
@@ -84,22 +96,24 @@ export const s = {
   string: (d?: string): FieldDefinition<string> => new FieldDef("string", d, (v: any) => String(v)),
   number: (d?: number): FieldDefinition<number> => new FieldDef("number", d, (v: any) => {
     const n = Number(v);
-    if (isNaN(n)) throw new Error(`Invalid number: ${v}`);
+    if (isNaN(n)) throw new Error(`Invalid number value: "${v}"`);
     return n;
   }),
   boolean: (d?: boolean): FieldDefinition<boolean> => new FieldDef("boolean", d, (v: any) => {
     if (typeof v === "boolean") return v;
-    if (v === undefined || v === "") return false;
+    // 显式设为空字符串 → false（与未设置区分：未设置走 core.ts 的 default 路径，不会进入此 parse）
+    if (v === "") return false;
     const s = String(v).toLowerCase().trim();
     if (["true", "1", "yes", "on"].includes(s)) return true;
     if (["false", "0", "no", "off"].includes(s)) return false;
-    throw new Error(`Invalid boolean: ${v}`);
+    throw new Error(`Invalid boolean value: "${v}"`);
   }),
   enum: <T extends string>(o: T[], d?: T): FieldDefinition<T> => new FieldDef("enum", d, (v: any) => {
     if (!o.includes(v)) throw new Error(`Value "${v}" is not one of: ${o.join(", ")}`);
     return v as T;
-  }, o),
+  }, o as string[]),
   array: (d?: string[], sep = ","): FieldDefinition<string[]> => new FieldDef("array", d, (v: any) => {
+    if (!sep) throw new Error("[safe-env] array separator cannot be empty");
     if (Array.isArray(v)) return v;
     if (typeof v !== "string") return [];
     return v.split(sep).map((i) => i.trim()).filter(Boolean);

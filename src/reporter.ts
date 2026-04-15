@@ -24,7 +24,15 @@ export function formatErrorReport(errors: EnvError[], useColor = true): string {
   };
   const p = (s: any, n: number) => {
     let r = String(s);
-    const w = () => r.length + (r.match(/[^\x00-\xff]/g) || []).length;
+    const w = () => {
+      let len = 0;
+      for (const ch of r) {
+        const cp = ch.codePointAt(0) ?? 0;
+        // CJK、emoji 等宽字符（占 2 列）
+        len += (cp > 0xff || (cp >= 0x1F000 && cp <= 0x1FFFF)) ? 2 : 1;
+      }
+      return len;
+    };
     while (w() > n) r = r.slice(0, -1);
     return r + " ".repeat(n - w());
   };

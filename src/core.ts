@@ -15,10 +15,12 @@ import {
 } from "./types.js";
 import { reportErrors, formatErrorReport } from "./reporter.js";
 
-const globalEnvCache: Record<string, any> = {};
+// 二级缓存：key = `${prefix}|${cwd ?? ''}|${mode ?? ''}` 避免不同调用间互相污染
+const globalEnvCache: Record<string, Record<string, any>> = {};
 const proxyCache = new WeakMap<object, any>();
 
 function createErrorProxy(errors: EnvError[]): any {
+  // 一次性格式化，不在 get trap 中重复计算，errors 数组不被闭包持有
   const message = formatErrorReport(errors, false);
   return new Proxy(
     {},
@@ -72,6 +74,23 @@ export function createReadOnlyProxy<T extends object>(target: T): T {
   return proxy;
 }
 
+/**
+ * 解析环境变量 key 的查找顺序：
+ * 1. sourceKey（.from() 指定的别名）
+ * 2. key 本身（已含 prefix 或不需要 prefix）
+ * 3. prefix + key（自动补前缀）
+ */
+function resolveKey(
+  key: string,
+  sourceKey: string | undefined,
+  source: Record<string, any>,
+  prefix: string,
+): string {
+  if (sourceKey) return sourceKey;
+  if (source[key] !== undefined) return key;
+  return prefix && !key.startsWith(prefix) ? prefix + key : key;
+}
+
 export function safeEnv<T extends Schema>(
   schema: T,
   options: SafeEnvOptions & { throwOnError?: boolean; useCache?: boolean; envLoader?: (f: string, cwd?: string) => Record<string, string> } = {},
@@ -85,8 +104,14 @@ export function safeEnv<T extends Schema>(
     envLoader,
   } = options;
 
+  const mode = options.mode || (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) || DEV;
+
+  // 缓存分区 key，隔离不同 prefix/cwd/mode 的调用
+  const cacheKey = `${prefix}|${cwd ?? ""}|${mode}`;
+
   if (refreshCache) {
-    for (const key in globalEnvCache) delete globalEnvCache[key];
+    // 原子删除当前分区，不影响其他 prefix/cwd/mode 的缓存
+    delete globalEnvCache[cacheKey];
   }
 
   const isBrowser = typeof window !== "undefined";
@@ -96,7 +121,6 @@ export function safeEnv<T extends Schema>(
   const isProtectedEnv = isBrowser || isVite || "source" in options;
 
   let source: Record<string, any> = {};
-
   let isPrematureLoad = false;
 
   if ("source" in options) {
@@ -106,34 +130,28 @@ export function safeEnv<T extends Schema>(
     } else {
       source = options.source;
     }
-  } else if (useCache && !refreshCache && Object.keys(globalEnvCache).length > 0) {
-    source = globalEnvCache;
+  } else if (useCache && !refreshCache && globalEnvCache[cacheKey] && Object.keys(globalEnvCache[cacheKey]).length > 0) {
+    source = globalEnvCache[cacheKey];
   } else if (typeof process !== "undefined" && !isBrowser) {
     try {
-      const mode = options.mode || process.env.NODE_ENV || DEV;
       let combinedData: Record<string, string> = {};
-      
-      // 使用注入的加载器或默认不加载
+
       if (envLoader) {
         for (const f of [".env", `.env.${mode}`, ".env.local", `.env.${mode}.local`]) {
           combinedData = { ...combinedData, ...envLoader(f, cwd) };
         }
       }
-      
+
       source = { ...combinedData, ...(loadProcessEnv ? process.env : {}) };
     } catch (e) {
       source = {};
     }
   }
 
-  if (useCache && !refreshCache && Object.keys(globalEnvCache).length > 0) {
-    if (Object.keys(source).length === 0) {
-      source = globalEnvCache;
-    } else {
-      Object.assign(globalEnvCache, source);
-    }
-  } else if (useCache && Object.keys(source).length > 0) {
-    Object.assign(globalEnvCache, source);
+  // 写入缓存（仅在有数据且未使用 source 选项时）
+  if (useCache && !("source" in options) && Object.keys(source).length > 0) {
+    if (!globalEnvCache[cacheKey]) globalEnvCache[cacheKey] = {};
+    Object.assign(globalEnvCache[cacheKey], source);
   }
 
   const result = {} as any;
@@ -141,16 +159,7 @@ export function safeEnv<T extends Schema>(
 
   for (const key in schema) {
     const d = schema[key];
-    const prefixedKey = prefix && !key.startsWith(prefix) ? prefix + key : key;
-    
-    const lookupKey =
-      d.sourceKey ||
-      (source[prefixedKey] !== undefined
-        ? prefixedKey
-        : source[key] !== undefined
-          ? key
-          : prefixedKey);
-    
+    const lookupKey = resolveKey(key, d.sourceKey, source, prefix);
     const raw = source[lookupKey];
 
     const ctx: ValidationContext = { source, parsed: result };
@@ -162,17 +171,7 @@ export function safeEnv<T extends Schema>(
           throw new Error("Missing required field");
         result[key] = d.default;
       } else {
-        const val = d.parse(raw, ctx);
-        if (val !== undefined && d.metadata) {
-          const { min, max } = d.metadata;
-          if (typeof val === "number") {
-            if (min !== undefined && val < min)
-              throw new Error(`Below min ${min}`);
-            if (max !== undefined && val > max)
-              throw new Error(`Above max ${max}`);
-          }
-        }
-        result[key] = val;
+        result[key] = d.parse(raw, ctx);
       }
     } catch (err: any) {
       errors.push({
@@ -190,7 +189,6 @@ export function safeEnv<T extends Schema>(
       (err as any).plainMessage = formatErrorReport(errors, false);
       throw err;
     }
-    // 静默屏蔽 Vite 配置文件早产环境的幽灵打印
     if (!isPrematureLoad) {
       reportErrors(errors);
     }

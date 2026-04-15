@@ -17,12 +17,20 @@ export interface ValidationContext {
   parsed: Record<string, any>;
 }
 
+export interface FieldMetadata {
+  isSecret?: boolean;
+  description?: string;
+  min?: number;
+  max?: number;
+  options?: string[];
+}
+
 export interface FieldDefinition<T = any, D extends string = string> {
   type: BaseType;
   default?: T;
   required: boolean | ((ctx: ValidationContext) => boolean);
   sourceKey?: string;
-  metadata?: any;
+  metadata?: FieldMetadata;
   parse: (val: any, ctx: ValidationContext) => T;
   from: (key: string) => FieldDefinition<T, D>;
   optional: () => FieldDefinition<T | undefined, D>;
